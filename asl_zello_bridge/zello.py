@@ -102,16 +102,8 @@ class ZelloController:
         while True:
 
             try:
-                pcm = await asyncio.wait_for(self._stream_in.read(320), timeout=1)
-            except asyncio.TimeoutError:
-                pcm = []
+                pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
 
-            if len(pcm) == 0:
-                if sending:
-                    await self.end_tx(ws)
-                    sending = False
-
-            else:
                 if not sending:
                     await self.start_tx(ws)
                     sending = True
@@ -119,6 +111,14 @@ class ZelloController:
                 opus = encoder.encode(pcm)
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
                 await ws.send_bytes(frame)
+                await asyncio.sleep(0)
+
+            except asyncio.TimeoutError:
+                pcm = []
+                if sending:
+                    await self.end_tx(ws)
+                    sending = False
+                continue
 
     async def run_rx(self):
         self._logger.debug('run()')

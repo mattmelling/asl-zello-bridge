@@ -34,10 +34,8 @@ class USRPController(asyncio.DatagramProtocol):
         loop.create_task(self._stream_out.write(frame))
 
     async def run(self):
-        await asyncio.gather(*[
-            self.run_tx()
-            # rx is handled by DatagramProtocol parent class
-        ])
+        # rx is handled by DatagramProtocol parent class
+        await self.run_tx()
 
     def _tx_encode_state(self):
         return 'USRP'.encode('ascii') \
