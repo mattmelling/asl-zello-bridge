@@ -12,6 +12,7 @@ sudo python setup.py install
 ```
 ### Install Bridge
 ```
+cd asl-zello-bridge
 sudo apt-get install -y python3-setuptools
 sudo python3 setup.py install
 ```
@@ -42,7 +43,7 @@ Environment=ZELLO_ENDPOINT=wss://zello.io/ws   # Change this for different Zello
 Then enable the service
 
 ```
-sudo systemctl enable asl-zello-bridge.service`
+sudo systemctl enable asl-zello-bridge.service
 ```
 
 ## Allstarlink Setup
