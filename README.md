@@ -28,15 +28,15 @@ Update environment variables by setting this in the editor that pops up:
 
 ```
 [Service]
-Environment=USRP_BIND=
-Environment=USRP_HOST=
+Environment=USRP_BIND=                         # Bind host for USRP RX
+Environment=USRP_HOST=                         # Destination host for USRP TX
 Environment=USRP_RXPORT=
 Environment=USRP_TXPORT=
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
 Environment=ZELLO_CHANNEL=
-Environment=ZELLO_TOKEN=""
-Environment=ZELLO_ENDPOINT=wss://zello.io/ws
+Environment=ZELLO_TOKEN=""                     # Token from developer portal
+Environment=ZELLO_ENDPOINT=wss://zello.io/ws   # Change this for different Zello flavor
 ```
 
 Then enable the service
