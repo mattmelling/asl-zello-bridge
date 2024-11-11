@@ -55,8 +55,10 @@ class ZelloController:
             return await self.get_token_work()
 
     async def get_token_work(self):
+        endpoint = os.environ.get('ZELLO_API_ENDPOINT')
+        self._logger.info(f'Using endpoint {endpoint}')
         async with aiohttp.ClientSession() as session:
-            async with session.post(f'{os.environ.get('ZELLO_API_ENDPOINT')}/user/gettoken', data={
+            async with session.post(f'{endpoint}/user/gettoken', data={
                 'username': os.environ.get('ZELLO_USERNAME'),
                 'password': os.environ.get('ZELLO_PASSWORD')
             }) as response:
