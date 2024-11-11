@@ -40,6 +40,7 @@
       python-env = python.withPackages (ps: with ps; [
         aiohttp
         pyogg
+        setuptools
       ]);
     in {
       devShell.x86_64-linux = pkgs.mkShell {

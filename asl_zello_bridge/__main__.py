@@ -10,7 +10,7 @@ logging.basicConfig(level='DEBUG')
 logger = logging.getLogger('__main__')
 
 
-async def main():
+async def _main():
     loop = asyncio.get_running_loop()
 
     # Stream from Zello -> USRP
@@ -40,5 +40,8 @@ async def main():
     print('waiting')
     loop.run_forever()
 
+def main():
+    asyncio.run(_main())
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
