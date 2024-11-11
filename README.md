@@ -30,25 +30,34 @@ Update environment variables by setting this in the editor that pops up:
 
 ```
 [Service]
-Environment=USRP_BIND=                         # Bind host for USRP RX
-Environment=USRP_HOST=                         # Destination host for USRP TX
+Environment=USRP_BIND=                          # Bind host for USRP RX
+Environment=USRP_HOST=                          # Destination host for USRP TX
 Environment=USRP_RXPORT=
 Environment=USRP_TXPORT=
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
 Environment=ZELLO_CHANNEL=
-Environment=ZELLO_ENDPOINT=wss://zello.io/ws   # Change this for different Zello flavor
+Environment=ZELLO_WS_ENDPOINT=wss://zello.io/ws # Change this for different Zello flavor, see below
 ```
 
+#### Zello Free
 For Zello Free accounts, also set the following:
 
 - `ZELLO_PRIVATE_KEY` should be a path to your PKCS#8 format private key, from the Zello Developers Console.
 - `ZELLO_ISSUER` should be set to the issuer, also from the Zello Developers Console.
 
-Then enable the service
+#### Zello Work
+For Zello Work accounts, set the following additional configuration:
+
+- `ZELLO_API_ENDPOINT` should be set to your Zello network, e.g. `https://mynetwork.zellowork.com`
+- `ZELLO_WS_ENDPOINT` should be your network's websocket endpoint, e.g. `ws://zellowork.io/ws/mynetwork`
+
+#### Enable Service
+Finally, enable the service
 
 ```
 sudo systemctl enable asl-zello-bridge.service
+sudo systemctl start asl-zello-bridge.service
 ```
 
 ## Allstarlink Setup

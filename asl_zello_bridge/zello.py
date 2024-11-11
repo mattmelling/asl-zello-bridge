@@ -42,18 +42,37 @@ class ZelloController:
         self._seq = seq + 1
         return seq
 
-    def get_token(self):
-        # return os.environ.get('ZELLO_TOKEN')
+    async def get_token(self):
 
+        # Zello Free
         if 'ZELLO_PRIVATE_KEY' in os.environ:
-            self._logger.info('Private key detected, generating token locally')
-            return self.get_token_local()
+            self._logger.info('Private key detected, getting Zello Free token')
+            return self.get_token_free()
+
+        # Zello Work
+        if 'ZELLOWORK_API' in os.environ:
+            self._logger.info('Zello Work API endpoint configured, getting token from workspace')
+            return await self.get_token_work()
+
+    async def get_token_work(self):
+        async with aiohttp.ClientSession() as session:
+            async with session.post(f'{os.environ.get('ZELLO_API_ENDPOINT')}/user/gettoken', data={
+                'username': os.environ.get('ZELLO_USERNAME'),
+                'password': os.environ.get('ZELLO_PASSWORD')
+            }) as response:
+                print(response.status)
+                print(await response.text())
+                if response.status == 200:
+                    self._logger.info('Got Zello Work token successfully!')
+                    return json.loads(await response.text())['token']
+                self._logger.info(f'Failed to get Zello Work token: {response.status} {await response.text()}')
+                return None
 
     def load_private_key(self):
         with open(os.environ['ZELLO_PRIVATE_KEY'], 'rb') as f:
             return f.read()
 
-    def get_token_local(self):
+    def get_token_free(self):
         expiry = unix_time() + AUTH_TOKEN_EXPIRY
         key = self.load_private_key()
         token = jwt.encode({
@@ -80,7 +99,7 @@ class ZelloController:
             self._refresh_token = None
         else:
             self._logger.info('Authenticating with new token')
-            payload['auth_token'] = self.get_token()
+            payload['auth_token'] = await self.get_token()
 
         json_payload = json.dumps(payload)
         self._logger.info(json_payload)
@@ -161,7 +180,7 @@ class ZelloController:
         is_authorized = False
 
         async with aiohttp.ClientSession(connector = conn) as session:
-            async with session.ws_connect(os.environ.get('ZELLO_ENDPOINT')) as ws:
+            async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT')) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 loop.create_task(self.run_tx(ws))
                 async for msg in ws:
@@ -190,6 +209,7 @@ class ZelloController:
                                 is_channel_available = True
 
                         if 'success' in data:
+                            is_authorized = True
 
                             # Response to stream start
                             if 'stream_id' in data:
@@ -197,7 +217,6 @@ class ZelloController:
 
                             # Response to auth
                             elif 'refresh_token' in data:
-                                is_authorized = True
                                 self._refresh_token = data['refresh_token']
 
                         if (not is_authorized) and (not is_channel_available):
