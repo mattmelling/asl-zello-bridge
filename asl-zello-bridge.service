@@ -1,0 +1,17 @@
+# systemctl edit asl-zello-bridge.service to edit environment variables
+# Environment=USRP_BIND=
+# Environment=USRP_HOST=
+# Environment=USRP_RXPORT=
+# Environment=USRP_TXPORT=
+# Environment=ZELLO_USERNAME=
+# Environment=ZELLO_PASSWORD=
+# Environment=ZELLO_CHANNEL=
+# Environment=ZELLO_TOKEN=""
+# Environment=ZELLO_ENDPOINT=wss://zello.io/ws
+
+[Service]
+ExecStart=/usr/local/bin/asl_zello_bridge
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
