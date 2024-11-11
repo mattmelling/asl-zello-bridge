@@ -165,9 +165,9 @@ class ZelloController:
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 loop.create_task(self.run_tx(ws))
                 async for msg in ws:
-                    self._logger.info(msg)
 
                     if msg.type == aiohttp.WSMsgType.TEXT:
+                        self._logger.info(msg)
                         data = json.loads(msg.data)
 
                         if 'error' in data:
