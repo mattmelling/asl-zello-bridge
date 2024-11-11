@@ -6,12 +6,22 @@ import logging
 import os
 import socket
 import struct
+import jwt
+
+from datetime import datetime
 
 from pyogg.opus_decoder import OpusDecoder
 from pyogg.opus_encoder import OpusEncoder
 
 from .stream import AsyncByteStream
 
+
+AUTH_TOKEN_EXPIRY = 3600
+AUTH_TOKEN_EXPIRY_CHECK_TIMEOUT = 300
+AUTH_TOKEN_EXPIRY_CHECK_THRESHOLD = 600
+
+def unix_time():
+    return int((datetime.now() - datetime(1970, 1, 1)).total_seconds())
 
 class ZelloController:
 
@@ -24,36 +34,57 @@ class ZelloController:
         self._stream_id = None
         self._seq = 0
 
+        self._token_expiry = 0
+        self._refresh_token = None
+
     def get_seq(self):
         seq = self._seq
         self._seq = seq + 1
         return seq
 
+    def get_token(self):
+        # return os.environ.get('ZELLO_TOKEN')
+
+        if 'ZELLO_PRIVATE_KEY' in os.environ:
+            self._logger.info('Private key detected, generating token locally')
+            return self.get_token_local()
+
+    def load_private_key(self):
+        with open(os.environ['ZELLO_PRIVATE_KEY'], 'rb') as f:
+            return f.read()
+
+    def get_token_local(self):
+        expiry = unix_time() + AUTH_TOKEN_EXPIRY
+        key = self.load_private_key()
+        token = jwt.encode({
+            'iss': os.environ.get('ZELLO_ISSUER', ''),
+            'exp': expiry
+        }, key, algorithm='RS256')
+        self._token_expiry = expiry
+        return token
+
     async def authenticate(self, ws):
         # https://github.com/zelloptt/zello-channel-api/blob/master/AUTH.md
-        await ws.send_str(json.dumps({
+        payload = {
             'command': 'logon',
             'seq': self.get_seq(),
-            'auth_token': os.environ.get('ZELLO_TOKEN'),
             'username': os.environ.get('ZELLO_USERNAME'),
             'password': os.environ.get('ZELLO_PASSWORD'),
             'channel': os.environ.get('ZELLO_CHANNEL')
-        }))
+        }
 
-        is_authorized = False
-        is_channel_available = False
-        async for msg in ws:
-            if msg.type == aiohttp.WSMsgType.TEXT:
-                data = json.loads(msg.data)
-                if 'refresh_token' in data:
-                    is_authorized = True
-                elif 'command' in data and 'status' in data and data['command'] == 'on_channel_status':
-                    is_channel_available = data['status'] == 'online'
-                if is_authorized and is_channel_available:
-                    break
+        # Use refresh token if we have one
+        if self._refresh_token is not None:
+            self._logger.info('Authenticating with refresh token')
+            payload['refresh_token'] = self._refresh_token
+            self._refresh_token = None
+        else:
+            self._logger.info('Authenticating with new token')
+            payload['auth_token'] = self.get_token()
 
-        if not is_authorized or not is_channel_available:
-            raise NameError('Authentication failed')
+        json_payload = json.dumps(payload)
+        self._logger.info(json_payload)
+        await ws.send_str(json_payload)
 
     async def run(self):
         await asyncio.gather(*[
@@ -126,24 +157,52 @@ class ZelloController:
         decoder = None
         loop = asyncio.get_running_loop()
 
+        is_channel_available = False
+        is_authorized = False
+
         async with aiohttp.ClientSession(connector = conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_ENDPOINT')) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 loop.create_task(self.run_tx(ws))
                 async for msg in ws:
                     self._logger.info(msg)
+
                     if msg.type == aiohttp.WSMsgType.TEXT:
                         data = json.loads(msg.data)
+
+                        if 'error' in data:
+                            break
+
                         if 'command' in data:
+
+                            # Stream starting
                             if data['command'] == 'on_stream_start':
                                 decoder = OpusDecoder()
                                 decoder.set_channels(1)
                                 decoder.set_sampling_frequency(8000)
 
+                            # Stream stopped
                             elif data['command'] == 'on_stream_stop':
                                 decoder = None
-                        elif 'success' in data and 'stream_id' in data:
-                            self._stream_id = data['stream_id']
+
+                            # Channel status command
+                            elif data['command'] == 'on_channel_status':
+                                is_channel_available = True
+
+                        if 'success' in data:
+
+                            # Response to stream start
+                            if 'stream_id' in data:
+                                self._stream_id = data['stream_id']
+
+                            # Response to auth
+                            elif 'refresh_token' in data:
+                                is_authorized = True
+                                self._refresh_token = data['refresh_token']
+
+                        if (not is_authorized) and (not is_channel_available):
+                            self._logger.error('Authentication failed')
+                            break
 
                     elif msg.type == aiohttp.WSMsgType.BINARY:
                         data = msg.data[9:]
@@ -151,3 +210,7 @@ class ZelloController:
                         await self._stream_out.write(pcm)
 
                     await asyncio.sleep(0)
+
+        # Prevent loop spam
+        await asyncio.sleep(3)
+        loop.create_task(self.run_rx())

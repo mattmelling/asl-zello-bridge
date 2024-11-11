@@ -39,6 +39,8 @@
       };
       python-env = python.withPackages (ps: with ps; [
         aiohttp
+        cryptography
+        pyjwt
         pyogg
         setuptools
       ]);

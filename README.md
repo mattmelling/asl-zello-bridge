@@ -37,9 +37,13 @@ Environment=USRP_TXPORT=
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
 Environment=ZELLO_CHANNEL=
-Environment=ZELLO_TOKEN=""                     # Token from developer portal
 Environment=ZELLO_ENDPOINT=wss://zello.io/ws   # Change this for different Zello flavor
 ```
+
+For Zello free accounts, also set the following:
+
+- `ZELLO_PRIVATE_KEY` should be a path to your PKCS#8 format private key, from the Zello Developers Console.
+- `ZELLO_ISSUER` should be set to the issuer, also from the Zello Developers Console.
 
 Then enable the service
 

@@ -10,6 +10,8 @@ def main():
               ]},
           install_requires=[
               'aiohttp',
+              'cryptography',
+              'pyjwt',
               'pyogg'
           ])
 
