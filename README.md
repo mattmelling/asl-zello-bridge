@@ -12,6 +12,7 @@ sudo python setup.py install
 ```
 ### Install Bridge
 ```
+git clone https://github.com/mattmelling/asl-zello-bridge.git
 cd asl-zello-bridge
 sudo apt-get install -y python3-setuptools
 sudo python3 setup.py install
