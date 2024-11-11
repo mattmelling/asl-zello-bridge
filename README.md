@@ -40,7 +40,7 @@ Environment=ZELLO_CHANNEL=
 Environment=ZELLO_ENDPOINT=wss://zello.io/ws   # Change this for different Zello flavor
 ```
 
-For Zello free accounts, also set the following:
+For Zello Free accounts, also set the following:
 
 - `ZELLO_PRIVATE_KEY` should be a path to your PKCS#8 format private key, from the Zello Developers Console.
 - `ZELLO_ISSUER` should be set to the issuer, also from the Zello Developers Console.
