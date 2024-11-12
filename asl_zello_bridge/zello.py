@@ -181,6 +181,10 @@ class ZelloController:
         is_channel_available = False
         is_authorized = False
 
+        decoder = OpusDecoder()
+        decoder.set_channels(1)
+        decoder.set_sampling_frequency(8000)
+
         async with aiohttp.ClientSession(connector = conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT')) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
@@ -198,13 +202,11 @@ class ZelloController:
 
                             # Stream starting
                             if data['command'] == 'on_stream_start':
-                                decoder = OpusDecoder()
-                                decoder.set_channels(1)
-                                decoder.set_sampling_frequency(8000)
+                                pass
 
                             # Stream stopped
                             elif data['command'] == 'on_stream_stop':
-                                decoder = None
+                                pass
 
                             # Channel status command
                             elif data['command'] == 'on_channel_status':
@@ -226,9 +228,12 @@ class ZelloController:
                             break
 
                     elif msg.type == aiohttp.WSMsgType.BINARY:
+                        self._logger.info(f'Data packet {len(msg.data)} bytes')
                         data = msg.data[9:]
                         pcm = decoder.decode(bytearray(data))
                         await self._stream_out.write(pcm)
+                    else:
+                        self._logger.info(f'Unhandled message: {msg}')
 
                     await asyncio.sleep(0)
 
