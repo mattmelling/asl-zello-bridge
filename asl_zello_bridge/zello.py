@@ -36,6 +36,7 @@ class ZelloController:
 
         self._token_expiry = 0
         self._refresh_token = None
+        self._txing = False
 
     def get_seq(self):
         seq = self._seq
@@ -156,6 +157,9 @@ class ZelloController:
             try:
                 pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
 
+                if self._txing:
+                    continue
+
                 if not sending:
                     await self.start_tx(ws)
                     sending = True
@@ -203,10 +207,12 @@ class ZelloController:
                             # Stream starting
                             if data['command'] == 'on_stream_start':
                                 self._logger.info('on_stream_start')
+                                self._txing = True
 
                             # Stream stopped
                             elif data['command'] == 'on_stream_stop':
                                 self._logger.info('on_stream_stop')
+                                self._txing = False
 
                             # Channel status command
                             elif data['command'] == 'on_channel_status':
