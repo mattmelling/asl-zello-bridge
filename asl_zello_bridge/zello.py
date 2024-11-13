@@ -202,11 +202,11 @@ class ZelloController:
 
                             # Stream starting
                             if data['command'] == 'on_stream_start':
-                                pass
+                                self._logger.info('on_stream_start')
 
                             # Stream stopped
                             elif data['command'] == 'on_stream_stop':
-                                pass
+                                self._logger.info('on_stream_stop')
 
                             # Channel status command
                             elif data['command'] == 'on_channel_status':
@@ -221,6 +221,7 @@ class ZelloController:
 
                             # Response to auth
                             elif 'refresh_token' in data:
+                                self._logger.info('Authentication successful!')
                                 self._refresh_token = data['refresh_token']
 
                         if (not is_authorized) and (not is_channel_available):
