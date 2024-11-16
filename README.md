@@ -34,6 +34,10 @@ Environment=USRP_BIND=                          # Bind host for USRP RX
 Environment=USRP_HOST=                          # Destination host for USRP TX
 Environment=USRP_RXPORT=
 Environment=USRP_TXPORT=
+
+Environment=USRP_GAIN_RX_DB=0                   # Gain applied at USRP interface in dB, defaults to 0dB
+Environment=USRP_GAIN_TX_DB=0                   # TX = USRP stream output to ASL, RX = USRP stream from ASL
+
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
 Environment=ZELLO_CHANNEL=
