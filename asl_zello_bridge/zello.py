@@ -37,6 +37,7 @@ class ZelloController:
         self._token_expiry = 0
         self._refresh_token = None
         self._txing = False
+        self._logged_in = False
 
     def get_seq(self):
         seq = self._seq
@@ -157,7 +158,7 @@ class ZelloController:
             try:
                 pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
 
-                if self._txing:
+                if self._txing or not self._logged_in:
                     continue
 
                 if not sending:
@@ -233,6 +234,8 @@ class ZelloController:
                         if (not is_authorized) and (not is_channel_available):
                             self._logger.error('Authentication failed')
                             break
+                        else:
+                            self._logged_in = True
 
                     elif msg.type == aiohttp.WSMsgType.BINARY:
                         self._logger.info(f'Data packet {len(msg.data)} bytes')
