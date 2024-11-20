@@ -179,7 +179,7 @@ class ZelloController:
                     sending = False
                 continue
 
-            except asyncio.ConnectionResetError:
+            except ConnectionResetError:
                 sys.exit(-1)
 
     async def run_rx(self):
