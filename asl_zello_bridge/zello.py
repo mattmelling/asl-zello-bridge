@@ -7,6 +7,7 @@ import os
 import socket
 import struct
 import jwt
+import sys
 
 from datetime import datetime
 
@@ -167,6 +168,7 @@ class ZelloController:
 
                 opus = encoder.encode(pcm)
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
+
                 await ws.send_bytes(frame)
                 await asyncio.sleep(0)
 
@@ -176,6 +178,9 @@ class ZelloController:
                     await self.end_tx(ws)
                     sending = False
                 continue
+
+            except asyncio.ConnectionResetError:
+                sys.exit(-1)
 
     async def run_rx(self):
         self._logger.debug('run()')
