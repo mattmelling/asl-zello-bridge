@@ -1,7 +1,7 @@
 # Allstarlink <=> Zello Bridge
 
 ## Installation
-
+These instructions were tested with Debian 12, and may need adaptation for other systems.
 ### Install `pyogg`
 Current version of pyogg available through pip is not up to date, so install from git.
 ```
