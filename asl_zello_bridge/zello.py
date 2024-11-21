@@ -164,7 +164,7 @@ class ZelloController:
 
                 # Stop sending if USRP PTT is clear
                 if not self._usrp_ptt.is_set() and sending:
-                    self._end_tx(ws)
+                    await self._end_tx(ws)
 
                 # Wait for USRP PTT to key
                 await self._usrp_ptt.wait()
