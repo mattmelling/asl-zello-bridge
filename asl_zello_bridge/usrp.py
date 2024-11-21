@@ -36,7 +36,9 @@ def clamp_short(sh):
 class USRPController(asyncio.DatagramProtocol):
     def __init__(self,
                  stream_in: AsyncByteStream,
-                 stream_out: AsyncByteStream):
+                 stream_out: AsyncByteStream,
+                 usrp_ptt: asyncio.Event,
+                 zello_ptt: asyncio.Event):
 
         self._stream_in = stream_in
         self._stream_out = stream_out
@@ -46,6 +48,9 @@ class USRPController(asyncio.DatagramProtocol):
         self._tx_seq_lock = asyncio.Lock()
         self._tx_address = os.environ.get('USRP_HOST')
         self._tx_port = int(os.environ.get('USRP_TXPORT', 7070))
+
+        self._usrp_ptt = usrp_ptt
+        self._zello_ptt = zello_ptt
 
         self._usrp_gain_rx = db_to_linear(USRP_GAIN_RX_DB)
         self._usrp_gain_tx = db_to_linear(USRP_GAIN_TX_DB)
@@ -58,6 +63,13 @@ class USRPController(asyncio.DatagramProtocol):
         pass
 
     def datagram_received(self, data, addr):
+        ptt = self._frame_ptt_state(data)
+        if not ptt:
+            self._usrp_ptt.clear()
+            return
+
+        self._usrp_ptt.set()
+
         loop = asyncio.get_running_loop()
         frame = data[USRP_HEADER_SIZE:]
 
@@ -70,27 +82,54 @@ class USRPController(asyncio.DatagramProtocol):
         # rx is handled by DatagramProtocol parent class
         await self.run_tx()
 
-    def _tx_encode_state(self):
+    async def _tx_encode_state(self, ptt=True):
+        seq = await self._get_seq()
         return 'USRP'.encode('ascii') \
             + struct.pack('>iiiiiii',
-                          self._tx_seq, 0,
-                          True, 0,
+                          seq, 0,
+                          ptt, 0,
                           USRP_TYPE_VOICE, 0, 0)
+
+    def _rx_decode_state(self, frame):
+        header = frame[4:USRP_HEADER_SIZE]
+        seq, mem, ptt, tg, type, mpx, res = struct.unpack('>iiiiiii', header)
+        return (seq, mem, ptt, tg, type, mpx, res)
+
+    def _frame_ptt_state(self, frame):
+        state = self._rx_decode_state(frame)
+        return state[2] == 1
+
+    async def _get_seq(self):
+        async with self._tx_seq_lock:
+            self._tx_seq = self._tx_seq + 1
+            return self._tx_seq
+
+    async def _tx_frame(self, pcm):
+        header = await self._tx_encode_state(ptt=True)
+
+        if self._usrp_gain_tx != 1:
+            pcm = apply_gain(pcm, self._usrp_gain_tx)
+
+        frame = header + pcm
+        self._tx(frame)
+
+    async def _tx_off(self):
+        frame = await self._tx_encode_state(ptt=False)
+        self._tx(frame)
+
+    def _tx(self, frame):
+        self._tx_socket.sendto(frame, (self._tx_address, self._tx_port))
 
     async def run_tx(self):
         while True:
+
+            # Send PTT off packet if Zello PTT is off
+            if not self._zello_ptt.is_set():
+                await self._tx_off()
+
+            # Wait for Zello PTT
+            await self._zello_ptt.wait()
+
             pcm = await self._stream_in.read(USRP_VOICE_SIZE)
-            if len(pcm) == 0:
-                await asyncio.sleep(0)
-            else:
-                async with self._tx_seq_lock:
-                    header = self._tx_encode_state()
-
-                    if self._usrp_gain_tx != 1:
-                        pcm = apply_gain(pcm, self._usrp_gain_tx)
-
-                    frame = header + pcm
-                    self._tx_socket.sendto(frame, (self._tx_address, self._tx_port))
-                    self._tx_seq = self._tx_seq + 1
-                    await asyncio.sleep(0)
-
+            if len(pcm) > 0:
+                await self._tx_frame(pcm)

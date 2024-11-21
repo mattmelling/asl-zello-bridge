@@ -19,11 +19,14 @@ async def _main():
     # Stream from USRP -> Zello
     usrpzo = AsyncByteStream()
 
+    usrp_ptt = asyncio.Event()
+    zello_ptt = asyncio.Event()
+
     logger.info('Initialising Zello')
-    zello = ZelloController(zousrp, usrpzo)
+    zello = ZelloController(zousrp, usrpzo, usrp_ptt, zello_ptt)
 
     logger.info('Initialising USRP')
-    usrp = USRPController(usrpzo, zousrp)
+    usrp = USRPController(usrpzo, zousrp, usrp_ptt, zello_ptt)
 
     await asyncio.gather(*[
         zello.run(),

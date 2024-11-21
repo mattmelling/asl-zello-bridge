@@ -28,7 +28,9 @@ class ZelloController:
 
     def __init__(self,
                  stream_in: AsyncByteStream,
-                 stream_out: AsyncByteStream):
+                 stream_out: AsyncByteStream,
+                 usrp_ptt: asyncio.Event,
+                 zello_ptt: asyncio.Event):
         self._logger = logging.getLogger('ZelloController')
         self._stream_out = stream_out
         self._stream_in = stream_in
@@ -37,8 +39,10 @@ class ZelloController:
 
         self._token_expiry = 0
         self._refresh_token = None
-        self._txing = False
         self._logged_in = False
+
+        self._usrp_ptt = usrp_ptt
+        self._zello_ptt = zello_ptt
 
     def get_seq(self):
         seq = self._seq
@@ -157,9 +161,17 @@ class ZelloController:
         while True:
 
             try:
+
+                # Stop sending if USRP PTT is clear
+                if not self._usrp_ptt.is_set() and sending:
+                    self._end_tx(ws)
+
+                # Wait for USRP PTT to key
+                await self._usrp_ptt.wait()
+
                 pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
 
-                if self._txing or not self._logged_in:
+                if self._zello_ptt.is_set() or not self._logged_in:
                     continue
 
                 if not sending:
@@ -213,12 +225,12 @@ class ZelloController:
                             # Stream starting
                             if data['command'] == 'on_stream_start':
                                 self._logger.info('on_stream_start')
-                                self._txing = True
+                                self._zello_ptt.set()
 
                             # Stream stopped
                             elif data['command'] == 'on_stream_stop':
                                 self._logger.info('on_stream_stop')
-                                self._txing = False
+                                self._zello_ptt.clear()
 
                             # Channel status command
                             elif data['command'] == 'on_channel_status':
