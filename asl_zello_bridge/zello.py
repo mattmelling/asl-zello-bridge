@@ -169,9 +169,10 @@ class ZelloController:
                 # Wait for USRP PTT to key
                 await self._usrp_ptt.wait()
 
-                pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
+                pcm = await self._stream_in.read(640)
 
-                if self._zello_ptt.is_set() or not self._logged_in:
+                if len(pcm) == 0 or self._zello_ptt.is_set() or not self._logged_in:
+                    await asyncio.sleep(0)
                     continue
 
                 if not sending:
