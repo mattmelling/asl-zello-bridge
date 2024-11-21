@@ -172,7 +172,6 @@ class ZelloController:
                 pcm = await self._stream_in.read(640)
 
                 if len(pcm) == 0 or self._zello_ptt.is_set() or not self._logged_in:
-                    await asyncio.sleep(0)
                     continue
 
                 if not sending:
@@ -183,7 +182,6 @@ class ZelloController:
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
 
                 await ws.send_bytes(frame)
-                await asyncio.sleep(0)
 
             except asyncio.TimeoutError:
                 pcm = []
