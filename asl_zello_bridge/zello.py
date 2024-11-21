@@ -139,7 +139,7 @@ class ZelloController:
         while self._stream_id is None:
             await asyncio.sleep(0)
 
-    async def end_tx(self, ws):
+    async def _end_tx(self, ws):
         stop_stream = json.dumps({
             'command': 'stop_stream',
             'seq': self.get_seq(),
@@ -187,7 +187,7 @@ class ZelloController:
             except asyncio.TimeoutError:
                 pcm = []
                 if sending:
-                    await self.end_tx(ws)
+                    await self._end_tx(ws)
                     sending = False
                 continue
 
