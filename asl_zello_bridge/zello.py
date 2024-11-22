@@ -164,20 +164,21 @@ class ZelloController:
 
                 # Stop sending if USRP PTT is clear
                 if not self._usrp_ptt.is_set() and sending:
+                    sending = False
                     await self._end_tx(ws)
 
                 # Wait for USRP PTT to key
                 await self._usrp_ptt.wait()
 
-                pcm = await self._stream_in.read(640)
+                pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
 
                 if len(pcm) == 0 or self._zello_ptt.is_set() or not self._logged_in:
                     continue
 
                 if not sending:
                     await self.start_tx(ws)
-                    sending = True
 
+                sending = True
                 opus = encoder.encode(pcm)
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
 
