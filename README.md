@@ -1,7 +1,19 @@
 # Allstarlink <=> Zello Bridge
+This tool allows Zello Free or Zello Work channels to be connected to USRP, enabling bridging of amateur radio networks to the Zello network.
+
+Using [Allstarlink](https://www.allstarlink.org/) as a backbone, this bridge could be used to connect Zello to many other amateur radio modes including DMR, YSF, M17, and many more via tools such as the [DVSwitch suite](https://dvswitch.groups.io/g/main?).
+
+Although this bridge was developed primarily with Allstarlink in mind, work is ongoing to test this bridge against the [SvxLink USRP module](https://github.com/f5vmr/svxlink_raspberry_usrp).
+
+The original inspiration for this project was the work done by [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) to build a public Zello bridge to the [FreeSTAR](https://freestar.network/) network using SIP softphones and the Zello Windows client. This was extremely well received by users of the network, however it was not an ideal solution and had some shortcomings. [Matt G4IYT](https://www.qrz.com/db/G4IYT) later rebuilt the bridge as a dedicated service based on the [Zello Channels API](https://github.com/zelloptt/zello-channel-api/blob/master/API.md).
+
+Users of the bridge include the [FreeSTAR Zello channel](https://zello.com/allstarradio?name=FreeSTAR) as well as [CumbriaCQ.com](https://cumbriacq.com/).
+
+The bridge does not require a lot of resources. The FreeSTAR bridge runs on a small VPS with 1 VCPU and 1GB RAM.
 
 ## Installation
 These instructions were tested with Debian 12, and may need adaptation for other systems.
+
 ### Install `pyogg`
 Current version of pyogg available through pip is not up to date, so install from git.
 ```
