@@ -2,7 +2,6 @@ import asyncio
 import logging
 import math
 import os
-import socket
 import struct
 
 from .stream import AsyncByteStream
@@ -43,11 +42,11 @@ class USRPController(asyncio.DatagramProtocol):
         self._stream_in = stream_in
         self._stream_out = stream_out
 
-        self._tx_socket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self._tx_seq = 0
         self._tx_seq_lock = asyncio.Lock()
         self._tx_address = os.environ.get('USRP_HOST')
         self._tx_port = int(os.environ.get('USRP_TXPORT', 7070))
+        self._transport = None
 
         self._usrp_ptt = usrp_ptt
         self._zello_ptt = zello_ptt
@@ -60,7 +59,7 @@ class USRPController(asyncio.DatagramProtocol):
         self._logger.info(f'USRP TX gain: {USRP_GAIN_TX_DB}dB = {self._usrp_gain_tx}')
 
     def connection_made(self, transport):
-        pass
+        self._transport = transport
 
     def datagram_received(self, data, addr):
         ptt = self._frame_ptt_state(data)
@@ -118,7 +117,8 @@ class USRPController(asyncio.DatagramProtocol):
         self._tx(frame)
 
     def _tx(self, frame):
-        self._tx_socket.sendto(frame, (self._tx_address, self._tx_port))
+        if self._transport is not None:
+            self._transport.sendto(frame, (self._tx_address, self._tx_port))
 
     async def run_tx(self):
         while True:
