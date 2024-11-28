@@ -17,7 +17,7 @@ These instructions were tested with Debian 12, and may need adaptation for other
 ### Install `pyogg`
 Current version of pyogg available through pip is not up to date, so install from git.
 ```
-sudo apt-get install libopus0
+sudo apt-get install libopus0 libopus-dev
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
 sudo python setup.py install
