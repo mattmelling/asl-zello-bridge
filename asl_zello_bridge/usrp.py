@@ -130,6 +130,10 @@ class USRPController(asyncio.DatagramProtocol):
             # Wait for Zello PTT
             await self._zello_ptt.wait()
 
-            pcm = await self._stream_in.read(USRP_VOICE_SIZE)
-            if len(pcm) > 0:
-                await self._tx_frame(pcm)
+            try:
+                pcm = await asyncio.wait_for(self._stream_in.read(USRP_VOICE_SIZE), timeout=0.1)
+                if len(pcm) > 0:
+                    await self._tx_frame(pcm)
+            except asyncio.TimeoutError:
+                pass
+
