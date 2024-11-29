@@ -6,7 +6,8 @@ from .zello import ZelloController
 from .usrp import USRPController
 from .stream import AsyncByteStream
 
-logging.basicConfig(level='DEBUG')
+log_format = os.environ.get('LOG_FORMAT', '%(levelname)s:%(name)s:%(message)s')
+logging.basicConfig(level='DEBUG', format=log_format)
 logger = logging.getLogger('__main__')
 
 
