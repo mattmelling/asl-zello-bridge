@@ -46,19 +46,17 @@ Update environment variables by setting this in the editor that pops up:
 Environment=USRP_BIND=
 # Destination host for USRP TX
 Environment=USRP_HOST=
+# Port we receive USRP stream on
 Environment=USRP_RXPORT=
+# Port we transmit USRP stream on
 Environment=USRP_TXPORT=
-
-# Gain applied at USRP interface in dB, defaults to 0dB
-Environment=USRP_GAIN_RX_DB=0
-
-# TX = USRP stream output to ASL, RX = USRP stream from ASL
-Environment=USRP_GAIN_TX_DB=0
 
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
 Environment=ZELLO_CHANNEL=
-Environment=ZELLO_WS_ENDPOINT=wss://zello.io/ws # Change this for different Zello flavor, see below
+
+# Change this for different Zello flavor, see below
+Environment=ZELLO_WS_ENDPOINT=wss://zello.io/ws
 ```
 
 #### Zello Free
@@ -72,6 +70,20 @@ For Zello Work accounts, set the following additional configuration:
 
 - `ZELLO_API_ENDPOINT` should be set to your Zello network, e.g. `https://mynetwork.zellowork.com`
 - `ZELLO_WS_ENDPOINT` should be your network's websocket endpoint, e.g. `ws://zellowork.io/ws/mynetwork`
+
+#### Additional Environment Variables
+These extra environment variables are entirely optional, shown with their defaults
+
+```
+# Specify format for log messages, see https://docs.python.org/3/library/logging.html#logrecord-attributes
+LOG_FORMAT="%(levelname)s:%(name)s:%(message)s"
+
+# Gain applied at USRP interface in dB, defaults to 0dB
+Environment=USRP_GAIN_RX_DB=0
+
+# TX = USRP stream output to ASL, RX = USRP stream from ASL
+Environment=USRP_GAIN_TX_DB=0
+```
 
 #### Enable Service
 Finally, enable the service
