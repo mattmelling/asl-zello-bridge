@@ -42,13 +42,18 @@ Update environment variables by setting this in the editor that pops up:
 
 ```
 [Service]
-Environment=USRP_BIND=                          # Bind host for USRP RX
-Environment=USRP_HOST=                          # Destination host for USRP TX
+# Bind host for USRP RX
+Environment=USRP_BIND=
+# Destination host for USRP TX
+Environment=USRP_HOST=
 Environment=USRP_RXPORT=
 Environment=USRP_TXPORT=
 
-Environment=USRP_GAIN_RX_DB=0                   # Gain applied at USRP interface in dB, defaults to 0dB
-Environment=USRP_GAIN_TX_DB=0                   # TX = USRP stream output to ASL, RX = USRP stream from ASL
+# Gain applied at USRP interface in dB, defaults to 0dB
+Environment=USRP_GAIN_RX_DB=0
+
+# TX = USRP stream output to ASL, RX = USRP stream from ASL
+Environment=USRP_GAIN_TX_DB=0
 
 Environment=ZELLO_USERNAME=
 Environment=ZELLO_PASSWORD=
