@@ -1,15 +1,20 @@
 # Allstarlink <=> Zello Bridge
 This tool allows Zello Free or Zello Work channels to be connected to USRP, enabling bridging of amateur radio networks to the Zello network.
 
-Using [Allstarlink](https://www.allstarlink.org/) as a backbone, this bridge could be used to connect Zello to many other amateur radio modes including DMR, YSF, M17, and many more via tools such as the [DVSwitch suite](https://dvswitch.groups.io/g/main?).
-
-Although this bridge was developed primarily with Allstarlink in mind, work is ongoing to test this bridge against the [SvxLink USRP module](https://github.com/f5vmr/svxlink_raspberry_usrp).
+Tested with:
+- [Allstarlink](https://www.allstarlink.org/) `chan_usrp`
+- [DVSwitch](https://dvswitch.groups.io/g/main?) `Analog_Bridge`
+- [MMDVM_CM](https://github.com/juribeparada/MMDVM_CM) `USRP2DMR` and `USRP2YSF`
+- [SvxLink](https://www.svxlink.org/) via a third-party USRP module
 
 The original inspiration for this project was the work done by [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) to build a public Zello bridge to the [FreeSTAR](https://freestar.network/) network using SIP softphones and the Zello Windows client. This was extremely well received by users of the network, however it was not an ideal solution and had some shortcomings. [Matt G4IYT](https://www.qrz.com/db/G4IYT) later rebuilt the bridge as a dedicated service based on the [Zello Channels API](https://github.com/zelloptt/zello-channel-api/blob/master/API.md).
 
-Users of the bridge include the [FreeSTAR Zello channel](https://zello.com/allstarradio?name=FreeSTAR) as well as [CumbriaCQ.com](https://cumbriacq.com/).
+Current users of the bridge include
+- [FreeSTAR](https://freestar.network)
+- [CumbriaCQ.com](https://cumbriacq.com/)
+- [235 Alive](https://235alive.com)
 
-The bridge does not require a lot of resources. The FreeSTAR bridge runs on a small VPS with 1 VCPU and 1GB RAM.
+The bridge does not require a lot of resources. The FreeSTAR bridge runs on a small VPS with 1 VCPU and 1GB RAM, and runs well on AMD64 and ARM platforms.
 
 ## Installation
 These instructions were tested with Debian 12, and may need adaptation for other systems.
@@ -102,3 +107,12 @@ rpt.conf:
 [1001]
 rxchannel = USRP/127.0.0.1:7070:7071
 ```
+
+## Credits
+`asl-zello-bridge` is built and maintained by [Matt G4IYT](https://www.qrz.com/db/G4IYT)
+
+Special thanks to:
+- [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) for inspiration with the original "janky" bridge, hosting the FreeSTAR bridge, and continued support 
+- [Shane M0VUB](https://www.qrz.com/db/M0VUB) for his continued support on behalf of the FreeSTAR network
+- [Lee M0LLC](https://www.qrz.com/db/M0LLC) for early adoption and testing with the CumbriaCQ network
+- [Piotr G0TWP](https://www.qrz.com/db/G0TWP) for testing with SvxLink and unearthing some tricky bugs
