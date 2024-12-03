@@ -17,27 +17,60 @@ Current users of the bridge include
 The bridge does not require a lot of resources. The FreeSTAR bridge runs on a small VPS with 1 VCPU and 1GB RAM, and runs well on AMD64 and ARM platforms.
 
 ## Installation
-These instructions were tested with Debian 12, and may need adaptation for other systems.
+These instructions were tested with Debian 12, and may need adaptation for other systems. There are 2 installation methods:
 
-### Install `pyogg`
+- `pip + venv`: A modern method to install Python, ensures isolated environment that will not interfere with system packages
+- `setup.py`: An older method used with early versions of the bridge, can break your system if not wielded carefully.
+
+Please note that the `setup.py` method is deprecated in favor of `pip` + `venv`. Multiple users have reported issues with `setup.py` on Debian 12 and Ubuntu 24. If you originally installed your bridge with `setup.py`, we recommend that you upgrade, however for now things will still work.
+
+### Dependencies
+```
+apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-dev libvorbis-dev libopus0
+```
+
+### Install with pip + venv
+#### venv setup
+```
+mkdir -p /opt/asl-zello-bridge/venv
+python3 -m venv /opt/asl-zello-bridge/venv
+```
+#### Install `pyogg`
 Current version of pyogg available through pip is not up to date, so install from git.
 ```
-sudo apt-get install libopus0 libopus-dev
+git clone https://github.com/TeamPyOgg/PyOgg.git
+cd PyOgg
+/opt/asl-zello-bridge/venv/bin/python setup.py install
+```
+#### Install Bridge
+```
+git clone https://github.com/mattmelling/asl-zello-bridge.git
+cd asl-zello-bridge
+/opt/asl-zello-bridge/venv/bin/pip3 install .
+```
+### [DEPRECATED] Install with setup.py
+#### Install `pyogg`
+Current version of pyogg available through pip is not up to date, so install from git.
+```
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
 sudo python setup.py install
 ```
-### Install Bridge
+#### Install Bridge
+Some early installations of the bridge used `setup.py`, this has now been replaced with pip.
 ```
 git clone https://github.com/mattmelling/asl-zello-bridge.git
 cd asl-zello-bridge
-sudo apt-get install -y python3-setuptools
 sudo python3 setup.py install
 ```
 
-Now `asl_zello_bridge` should be on your `$PATH`.
+Now `asl_zello_bridge` should be on your `$PATH`. 
 
-### Setup Service
+
+
+
+
+## Setup Service
 ```
 sudo cp asl-zello-bridge.service /etc/systemd/system/
 sudo systemctl edit asl-zello-bridge.service

@@ -1,0 +1,17 @@
+[project]
+name = "asl-zello-bridge"
+version = "0.0.1"
+requires-python = ">= 3.8"
+authors = [
+    { name = "Matt G4IYT", email = "matt@g4iyt.uk" }
+]
+readme = "README.md"
+dependencies = [
+    "aiohttp",
+    "cryptography",
+    "pyjwt",
+    "pyogg"
+]
+
+[project.scripts]
+asl-zello-bridge = "asl_zello_bridge.__main__:main"

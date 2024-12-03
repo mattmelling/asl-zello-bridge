@@ -1,3 +1,8 @@
+################################################################################
+# Please note this setup.py is deprecated and only kept around to support      #
+# existing installations configured with this method.                          #
+################################################################################
+
 from setuptools import setup
 
 
