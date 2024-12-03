@@ -30,6 +30,10 @@ apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-de
 ```
 
 ### Install with pip + venv
+#### Python dependencies
+```
+apt-get install python3-venv python3-pip
+```
 #### venv setup
 ```
 mkdir -p /opt/asl-zello-bridge/venv
