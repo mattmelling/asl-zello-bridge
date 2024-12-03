@@ -69,10 +69,6 @@ sudo python3 setup.py install
 
 Now `asl_zello_bridge` should be on your `$PATH`. 
 
-
-
-
-
 ## Setup Service
 Please note: if you installed with `setup.py` you will need to modify the `asl-zello-bridge.service` to point to where the script is installed.
 ```
