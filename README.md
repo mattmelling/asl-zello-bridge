@@ -19,7 +19,7 @@ The bridge does not require a lot of resources. The FreeSTAR bridge runs on a sm
 ## Installation
 These instructions were tested with Debian 12, and may need adaptation for other systems. There are 2 installation methods:
 
-- `pip + venv`: A modern method to install Python, ensures isolated environment that will not interfere with system packages
+- `pip` + `venv`: A modern method to install Python, ensures isolated environment that will not interfere with system packages
 - `setup.py`: An older method used with early versions of the bridge, can break your system if not wielded carefully.
 
 Please note that the `setup.py` method is deprecated in favor of `pip` + `venv`. Multiple users have reported issues with `setup.py` on Debian 12 and Ubuntu 24. If you originally installed your bridge with `setup.py`, we recommend that you upgrade, however for now things will still work.
