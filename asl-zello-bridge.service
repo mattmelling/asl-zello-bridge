@@ -1,7 +1,13 @@
 # systemctl edit asl-zello-bridge.service to edit environment variables, see README.md
 
 [Service]
-ExecStart=/usr/local/bin/asl_zello_bridge
+
+# Uncomment for setup.py installation
+# ExecStart=/usr/local/bin/asl_zello_bridge
+
+# Default location for pip+venv installation
+ExecStart=/opt/asl-zello-bridge/venv/bin/asl_zello_bridge
+
 Restart=always
 
 [Install]

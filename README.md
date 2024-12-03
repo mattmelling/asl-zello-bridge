@@ -50,7 +50,6 @@ cd asl-zello-bridge
 ```
 ### [DEPRECATED] Install with setup.py
 #### Install `pyogg`
-Current version of pyogg available through pip is not up to date, so install from git.
 ```
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
@@ -71,6 +70,7 @@ Now `asl_zello_bridge` should be on your `$PATH`.
 
 
 ## Setup Service
+Please note: if you installed with `setup.py` you will need to modify the `asl-zello-bridge.service` to point to where the script is installed.
 ```
 sudo cp asl-zello-bridge.service /etc/systemd/system/
 sudo systemctl edit asl-zello-bridge.service
