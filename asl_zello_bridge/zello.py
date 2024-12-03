@@ -9,7 +9,7 @@ import struct
 import jwt
 import sys
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from pyogg.opus_decoder import OpusDecoder
 from pyogg.opus_encoder import OpusEncoder
@@ -22,7 +22,7 @@ AUTH_TOKEN_EXPIRY_CHECK_TIMEOUT = 300
 AUTH_TOKEN_EXPIRY_CHECK_THRESHOLD = 600
 
 def unix_time():
-    return int((datetime.now() - datetime(1970, 1, 1)).total_seconds())
+    return int((datetime.now(timezone.utc) - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds())
 
 class ZelloController:
 
