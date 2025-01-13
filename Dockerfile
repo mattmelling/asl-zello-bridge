@@ -2,7 +2,9 @@ FROM debian:bookworm
 
 # Install dependencies
 RUN apt-get update \
-    && apt-get install -y python3-venv python3-pip git
+    && apt-get install -y python3-venv python3-pip git libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-dev libvorbis-dev libopus0
+
+
 
 # Create virtual environment for bridge
 RUN mkdir -p /opt/asl-zello-bridge/venv \
