@@ -141,6 +141,31 @@ rpt.conf:
 rxchannel = USRP/127.0.0.1:7070:7071
 ```
 
+## Dockerfile
+This project also includes a `Dockerfile`, to build the Docker image:
+
+```
+docker build -t asl-zello-bridge .
+```
+
+It should be run with the same set of environment variables that are used with the `systemd` service. Some care has to be taken to provide access to key files, in this example it is mapped in as a volume:
+
+```
+docker run --rm -it \
+  -e USRP_BIND=0.0.0.0 \
+  -e USRP_HOST=allstar.node \
+  -e USRP_RXPORT=7070 \
+  -e USRP_TXPORT=7071 \
+  -e ZELLO_WS_ENDPOINT=wss://zello.io/ws \
+  -e ZELLO_CHANNEL=test \
+  -e ZELLO_PRIVATE_KEY=/test.key \
+  -e ZELLO_USERNAME=zello_test \
+  -e ZELLO_PASSWORD=P@55w0rd \
+  -e ZELLO_ISSUER=<issuer-token> \
+  -v /src/asl-zello-bridge/test.key:/test.key \
+  asl-zello-bridge
+```
+Of course this will also work with docker-compose, k8s, or anything that works with docker containers.
 ## Credits
 `asl-zello-bridge` is built and maintained by [Matt G4IYT](https://www.qrz.com/db/G4IYT)
 
