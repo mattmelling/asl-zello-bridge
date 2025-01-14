@@ -21,6 +21,7 @@ These instructions were tested with Debian 12, and may need adaptation for other
 
 - `pip` + `venv`: A modern method to install Python, ensures isolated environment that will not interfere with system packages
 - `setup.py`: An older method used with early versions of the bridge, can break your system if not wielded carefully.
+- `docker`: Running as a container on your docker/podman/k8s host
 
 Please note that the `setup.py` method is deprecated in favor of `pip` + `venv`. Multiple users have reported issues with `setup.py` on Debian 12 and Ubuntu 24. If you originally installed your bridge with `setup.py`, we recommend that you upgrade, however for now things will still work.
 
@@ -141,7 +142,7 @@ rpt.conf:
 rxchannel = USRP/127.0.0.1:7070:7071
 ```
 
-## Dockerfile
+## Docker
 This project also includes a `Dockerfile`, to build the Docker image:
 
 ```
