@@ -6,7 +6,7 @@
 # ExecStart=/usr/local/bin/asl_zello_bridge
 
 # Default location for pip+venv installation
-ExecStart=/opt/asl-zello-bridge/venv/bin/asl_zello_bridge
+ExecStart=/opt/asl-zello-bridge/venv/bin/asl-zello-bridge
 
 Restart=always
 
