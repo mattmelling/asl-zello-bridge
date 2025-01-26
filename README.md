@@ -98,6 +98,8 @@ Environment=ZELLO_CHANNEL=
 Environment=ZELLO_WS_ENDPOINT=wss://zello.io/ws
 ```
 
+**WARNING**: The channel name is *case-sensitive*. If the channel name is lowercase in Zello, then it must be lowercase in your configuration! The symptom of the channel name being misconfigured is that you only hear audio from the USRP side, and cannot hear audio coming from Zello. See [this GitHub issue](https://github.com/zelloptt/zello-channel-api/issues/236) and [the one it links to](https://github.com/zelloptt/zello-channel-api/issues/233) for more information.
+
 #### Zello Free
 For Zello Free accounts, also set the following:
 
