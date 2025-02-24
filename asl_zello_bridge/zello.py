@@ -44,6 +44,8 @@ class ZelloController:
         self._usrp_ptt = usrp_ptt
         self._zello_ptt = zello_ptt
 
+        self._txing = False
+
     def get_seq(self):
         seq = self._seq
         self._seq = seq + 1
@@ -121,6 +123,9 @@ class ZelloController:
 
 
     async def start_tx(self, ws):
+        if self._txing:
+            return
+        self._txing = True
         header = base64.b64encode(struct.pack('<hbb', 8000, 1, 20)).decode('utf8')
         start_stream = json.dumps({
             'command': 'start_stream',
@@ -148,6 +153,7 @@ class ZelloController:
         })
         self._logger.info(stop_stream)
         await ws.send_str(stop_stream)
+        self._txing = False
 
     async def run_tx(self, ws):
         encoder = OpusEncoder()
