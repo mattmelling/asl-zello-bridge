@@ -208,12 +208,18 @@ class ZelloController:
         decoder.set_sampling_frequency(8000)
 
         async with aiohttp.ClientSession(connector = conn) as session:
-            async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT')) as ws:
+            async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=False, heartbeat=True) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 loop.create_task(self.run_tx(ws))
                 async for msg in ws:
 
-                    if msg.type == aiohttp.WSMsgType.TEXT:
+                    if msg.type == aiohttp.WSMsgType.PING:
+                        self._logger.debug('PING from server')
+                        await ws.pong()
+                    elif msg.type == aiohttp.WSMsgType.PONG:
+                        self._logger.debug('PONG from server')
+
+                    elif msg.type == aiohttp.WSMsgType.TEXT:
                         self._logger.info(msg)
                         data = json.loads(msg.data)
 
@@ -260,7 +266,7 @@ class ZelloController:
                         pcm = decoder.decode(bytearray(data))
                         await self._stream_out.write(pcm)
                     else:
-                        self._logger.info(f'Unhandled message: {msg}')
+                        self._logger.warning(f'Unhandled message: {msg}')
 
                     await asyncio.sleep(0)
 
