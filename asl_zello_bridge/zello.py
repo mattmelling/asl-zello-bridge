@@ -166,6 +166,9 @@ class ZelloController:
 
         while True:
 
+            if ws.closed:
+                return
+
             try:
 
                 # Stop sending if USRP PTT is clear
@@ -213,19 +216,23 @@ class ZelloController:
         decoder.set_channels(1)
         decoder.set_sampling_frequency(8000)
 
-        async with aiohttp.ClientSession(connector = conn) as session:
+        async with aiohttp.ClientSession(connector=conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=False, heartbeat=True) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 loop.create_task(self.run_tx(ws))
                 async for msg in ws:
+
+                    if ws.closed:
+                        break
 
                     if msg.type == aiohttp.WSMsgType.PING:
                         self._logger.debug('PING from server')
                         await ws.pong()
                     elif msg.type == aiohttp.WSMsgType.PONG:
                         self._logger.debug('PONG from server')
-                    elif msg.type == aiohttp.WSMsgType.PONG:
+                    elif msg.type == aiohttp.WSMsgType.ERROR:
                         self._logger.debug('ERROR from server')
+                        await conn.close()
                         break
 
                     elif msg.type == aiohttp.WSMsgType.TEXT:
