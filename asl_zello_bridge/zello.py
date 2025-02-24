@@ -224,6 +224,9 @@ class ZelloController:
                         await ws.pong()
                     elif msg.type == aiohttp.WSMsgType.PONG:
                         self._logger.debug('PONG from server')
+                    elif msg.type == aiohttp.WSMsgType.PONG:
+                        self._logger.debug('ERROR from server')
+                        break
 
                     elif msg.type == aiohttp.WSMsgType.TEXT:
                         self._logger.info(msg)
@@ -277,5 +280,5 @@ class ZelloController:
                     await asyncio.sleep(0)
 
         # Prevent loop spam
-        await asyncio.sleep(3)
+        await asyncio.sleep(1)
         loop.create_task(self.run_rx())
