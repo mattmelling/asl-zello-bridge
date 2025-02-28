@@ -1,4 +1,6 @@
 import aiohttp
+from aiohttp import ClientConnectionResetError
+
 import asyncio
 import base64
 import json
@@ -7,9 +9,8 @@ import os
 import socket
 import struct
 import jwt
-import sys
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from pyogg.opus_decoder import OpusDecoder
 from pyogg.opus_encoder import OpusEncoder
@@ -18,8 +19,7 @@ from .stream import AsyncByteStream
 
 
 AUTH_TOKEN_EXPIRY = 3600
-AUTH_TOKEN_EXPIRY_CHECK_TIMEOUT = 300
-AUTH_TOKEN_EXPIRY_CHECK_THRESHOLD = 600
+AUTH_TOKEN_EXPIRY_THRESHOLD = 600
 
 def unix_time():
     return int((datetime.now(timezone.utc) - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds())
@@ -44,6 +44,7 @@ class ZelloController:
         self._usrp_ptt = usrp_ptt
         self._zello_ptt = zello_ptt
 
+        self._ws = None
         self._txing = False
 
     def get_seq(self):
@@ -84,11 +85,11 @@ class ZelloController:
             return f.read()
 
     def get_token_free(self):
-        expiry = unix_time() + AUTH_TOKEN_EXPIRY
+        expiry = datetime.now() + timedelta(seconds=AUTH_TOKEN_EXPIRY)
         key = self.load_private_key()
         token = jwt.encode({
             'iss': os.environ.get('ZELLO_ISSUER', ''),
-            'exp': expiry
+            'exp': int(expiry.timestamp())
         }, key, algorithm='RS256')
         self._token_expiry = expiry
         return token
@@ -117,14 +118,43 @@ class ZelloController:
         await ws.send_str(json_payload)
 
     async def run(self):
-        await asyncio.gather(*[
-            self.run_rx()
-        ])
+        try:
+            await asyncio.gather(*[
+                self.run_rx(),
+                self.monitor(),
+                self.run_tx()
+            ])
+        except ClientConnectionResetError:
+            await self.shutdown()
+        except Exception as e:
+            self._logger.error(e)
 
+    async def monitor(self):
+        self._logger.info('Monitor task starting')
+        while True:
+            if self._ws is None:
+                await asyncio.sleep(1)
+                continue
 
-    async def start_tx(self, ws):
+            time_until_expiry =  self._token_expiry - datetime.now()
+            if time_until_expiry.seconds <= AUTH_TOKEN_EXPIRY_THRESHOLD and not self._txing:
+                self._logger.info('Access token will expire soon, reauthenticating')
+                await self.authenticate(self._ws)
+
+            await asyncio.sleep(1)
+
+    async def shutdown(self):
+        if self._ws is not None:
+            await self._ws.close()
+        self._ws = None
+
+    async def start_tx(self):
         if self._txing:
             return
+        if self._ws.closed:
+            await self.shutdown()
+            return
+
         self._txing = True
         header = base64.b64encode(struct.pack('<hbb', 8000, 1, 20)).decode('utf8')
         start_stream = json.dumps({
@@ -140,11 +170,11 @@ class ZelloController:
             'packet_duration': 20
         })
         self._logger.info(start_stream)
-        await ws.send_str(start_stream)
+        await self._ws.send_str(start_stream)
         while self._stream_id is None:
             await asyncio.sleep(0)
 
-    async def _end_tx(self, ws):
+    async def _end_tx(self):
         stop_stream = json.dumps({
             'command': 'stop_stream',
             'seq': self.get_seq(),
@@ -152,10 +182,11 @@ class ZelloController:
             'stream_id': self._stream_id
         })
         self._logger.info(stop_stream)
-        await ws.send_str(stop_stream)
+        await self._ws.send_str(stop_stream)
         self._txing = False
 
-    async def run_tx(self, ws):
+    async def run_tx(self):
+        self._logger.debug('run_tx starting')
         encoder = OpusEncoder()
         encoder.set_application('voip')
         encoder.set_sampling_frequency(8000)
@@ -165,8 +196,12 @@ class ZelloController:
         pcm = []
 
         while True:
+            await asyncio.sleep(0)
 
-            if ws.closed:
+            if self._ws is None:
+                continue
+
+            if self._ws.closed:
                 return
 
             try:
@@ -174,7 +209,7 @@ class ZelloController:
                 # Stop sending if USRP PTT is clear
                 if not self._usrp_ptt.is_set() and sending:
                     sending = False
-                    await self._end_tx(ws)
+                    await self._end_tx()
 
                 # Wait for USRP PTT to key
                 await self._usrp_ptt.wait()
@@ -185,26 +220,23 @@ class ZelloController:
                     continue
 
                 if not sending:
-                    await self.start_tx(ws)
+                    await self.start_tx()
 
                 sending = True
                 opus = encoder.encode(pcm)
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
 
-                await ws.send_bytes(frame)
+                await self._ws.send_bytes(frame)
 
             except asyncio.TimeoutError:
                 pcm = []
                 if sending:
-                    await self._end_tx(ws)
+                    await self._end_tx()
                     sending = False
                 continue
 
-            except ConnectionResetError:
-                sys.exit(-1)
-
     async def run_rx(self):
-        self._logger.debug('run()')
+        self._logger.debug('run_rx starting')
         conn = aiohttp.TCPConnector(family=socket.AF_INET, ssl=False)
         decoder = None
         loop = asyncio.get_running_loop()
@@ -219,10 +251,11 @@ class ZelloController:
         async with aiohttp.ClientSession(connector=conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=False, heartbeat=True) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
-                loop.create_task(self.run_tx(ws))
+                self._ws = ws
                 async for msg in ws:
 
                     if ws.closed:
+                        self._logger.warning('Websocket closed!')
                         break
 
                     if msg.type == aiohttp.WSMsgType.PING:
