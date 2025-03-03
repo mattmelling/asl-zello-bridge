@@ -122,8 +122,6 @@ class ZelloController:
                 self.monitor(),
                 self.run_tx()
             ])
-        except ClientConnectionResetError:
-            await self.shutdown()
         except Exception as e:
             self._logger.error(e)
 
@@ -141,16 +139,10 @@ class ZelloController:
 
             await asyncio.sleep(1)
 
-    async def shutdown(self):
-        if self._ws is not None:
-            await self._ws.close()
-        self._ws = None
-
     async def start_tx(self):
         if self._txing:
             return
-        if self._ws.closed:
-            await self.shutdown()
+        if self._ws is None or self._ws.closed:
             return
 
         self._txing = True
@@ -173,6 +165,8 @@ class ZelloController:
             await asyncio.sleep(0)
 
     async def _end_tx(self):
+        if self._ws is None or self._ws.closed:
+            return
         stop_stream = json.dumps({
             'command': 'stop_stream',
             'seq': self.get_seq(),
@@ -223,7 +217,8 @@ class ZelloController:
                 opus = encoder.encode(pcm)
                 frame = struct.pack('>bii', 1, self._stream_id, 0) + opus
 
-                await self._ws.send_bytes(frame)
+                if self._ws is not None and not self._ws.closed:
+                    await self._ws.send_bytes(frame)
 
             except asyncio.TimeoutError:
                 pcm = []
@@ -253,6 +248,7 @@ class ZelloController:
 
                     if ws.closed:
                         self._logger.warning('Websocket closed!')
+                        self._ws = None
                         break
 
                     if msg.type == aiohttp.WSMsgType.PING:
