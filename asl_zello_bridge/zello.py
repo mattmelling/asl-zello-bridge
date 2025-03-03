@@ -199,6 +199,8 @@ class ZelloController:
             await asyncio.sleep(0)
 
             if self._ws is None or self._ws.closed:
+                await asyncio.sleep(1)
+                self._logger.info('WS closed!')
                 continue
 
             try:
