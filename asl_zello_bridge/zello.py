@@ -72,8 +72,6 @@ class ZelloController:
                 'username': os.environ.get('ZELLO_USERNAME'),
                 'password': os.environ.get('ZELLO_PASSWORD')
             }) as response:
-                print(response.status)
-                print(await response.text())
                 if response.status == 200:
                     self._logger.info('Got Zello Work token successfully!')
                     return json.loads(await response.text())['token']
