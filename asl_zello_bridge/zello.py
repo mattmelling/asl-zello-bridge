@@ -198,11 +198,8 @@ class ZelloController:
         while True:
             await asyncio.sleep(0)
 
-            if self._ws is None:
+            if self._ws is None or self._ws.closed:
                 continue
-
-            if self._ws.closed:
-                return
 
             try:
 
