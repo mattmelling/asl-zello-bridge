@@ -1,5 +1,4 @@
 import aiohttp
-from aiohttp import ClientConnectionResetError
 
 import asyncio
 import base64
