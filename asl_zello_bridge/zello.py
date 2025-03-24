@@ -36,7 +36,7 @@ class ZelloController:
         self._stream_id = None
         self._seq = 0
 
-        self._token_expiry = datetime.now()
+        self._token_expiry = None
         self._refresh_token = None
         self._logged_in = False
 
@@ -129,6 +129,9 @@ class ZelloController:
         while True:
             if self._ws is None:
                 await asyncio.sleep(1)
+                continue
+
+            if self._token_expiry is None:
                 continue
 
             time_until_expiry =  self._token_expiry - datetime.now()
