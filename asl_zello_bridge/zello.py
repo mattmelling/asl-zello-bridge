@@ -242,6 +242,7 @@ class ZelloController:
         decoder.set_channels(1)
         decoder.set_sampling_frequency(8000)
 
+        self._logger.info(f"Connecting to {os.environ.get('ZELLO_WS_ENDPOINT')}")
         async with aiohttp.ClientSession(connector=conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=False, heartbeat=True) as ws:
                 await asyncio.wait_for(self.authenticate(ws), 3)
