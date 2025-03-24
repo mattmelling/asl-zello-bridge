@@ -59,7 +59,7 @@ class ZelloController:
             return self.get_token_free()
 
         # Zello Work
-        if 'ZELLOWORK_API' in os.environ:
+        if 'ZELLO_API_ENDPOINT' in os.environ:
             self._logger.info('Zello Work API endpoint configured, getting token from workspace')
             return await self.get_token_work()
 
