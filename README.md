@@ -110,7 +110,7 @@ For Zello Free accounts, also set the following:
 For Zello Work accounts, set the following additional configuration:
 
 - `ZELLO_API_ENDPOINT` should be set to your Zello network, e.g. `https://mynetwork.zellowork.com`
-- `ZELLO_WS_ENDPOINT` should be your network's websocket endpoint, e.g. `ws://zellowork.io/ws/mynetwork`
+- `ZELLO_WS_ENDPOINT` should be your network's websocket endpoint, e.g. `wss://zellowork.io/ws/mynetwork`
 
 #### Additional Environment Variables
 These extra environment variables are entirely optional, shown with their defaults
