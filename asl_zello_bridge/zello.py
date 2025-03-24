@@ -98,7 +98,7 @@ class ZelloController:
             'seq': self.get_seq(),
             'username': os.environ.get('ZELLO_USERNAME'),
             'password': os.environ.get('ZELLO_PASSWORD'),
-            'channel': os.environ.get('ZELLO_CHANNEL')
+            'channels': [os.environ.get('ZELLO_CHANNEL')]
         }
 
         # Use refresh token if we have one
