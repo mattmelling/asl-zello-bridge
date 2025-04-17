@@ -8,6 +8,7 @@ import os
 import socket
 import struct
 import jwt
+import sys
 
 from datetime import datetime, timedelta, timezone
 
@@ -189,13 +190,20 @@ class ZelloController:
         sending = False
         pcm = []
 
+        ws_close_count = 0
+
         while True:
             await asyncio.sleep(0)
 
             if self._ws is None or self._ws.closed:
                 await asyncio.sleep(1)
                 self._logger.info('WS closed!')
+                ws_close_count += 1
+                if ws_close_count == 5:
+                    sys.exit(-1)
                 continue
+
+            ws_close_count = 0
 
             try:
 
