@@ -143,8 +143,6 @@ class ZelloController:
             await asyncio.sleep(1)
 
     async def start_tx(self):
-        if self._txing:
-            return
         if self._ws is None or self._ws.closed:
             return
 
