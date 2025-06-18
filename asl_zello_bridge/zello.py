@@ -120,10 +120,18 @@ class ZelloController:
             await asyncio.gather(*[
                 self.run_rx(),
                 self.monitor(),
-                self.run_tx()
+                self.run_tx(),
+                self.ping()
             ])
         except Exception as e:
             self._logger.error(e)
+
+    async def ping(self):
+        self._logger.info('Ping task starting')
+        while True:
+            if self._ws is not None:
+                await self._ws.ping()
+            await asyncio.sleep(5)
 
     async def monitor(self):
         self._logger.info('Monitor task starting')
