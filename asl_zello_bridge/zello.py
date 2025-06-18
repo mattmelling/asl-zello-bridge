@@ -24,6 +24,12 @@ AUTH_TOKEN_EXPIRY_THRESHOLD = 600
 def unix_time():
     return int((datetime.now(timezone.utc) - datetime(1970, 1, 1, tzinfo=timezone.utc)).total_seconds())
 
+def socket_setup_keepalive(sock):
+    sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 60)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
+    sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+
 class ZelloController:
 
     def __init__(self,
@@ -259,6 +265,10 @@ class ZelloController:
         self._logger.info(f"Connecting to {os.environ.get('ZELLO_WS_ENDPOINT')}")
         async with aiohttp.ClientSession(connector=conn) as session:
             async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=False, heartbeat=True) as ws:
+                sock = ws._response.connection.transport.get_extra_info('socket')
+                if sock:
+                    socket_setup_keepalive(sock)
+
                 await asyncio.wait_for(self.authenticate(ws), 3)
                 self._ws = ws
                 async for msg in ws:
