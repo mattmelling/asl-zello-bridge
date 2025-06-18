@@ -78,10 +78,11 @@ class ZelloController:
                 'username': os.environ.get('ZELLO_USERNAME'),
                 'password': os.environ.get('ZELLO_PASSWORD')
             }) as response:
+                txt = await response.text()
                 if response.status == 200:
                     self._logger.info('Got Zello Work token successfully!')
-                    return json.loads(await response.text())['token']
-                self._logger.info(f'Failed to get Zello Work token: {response.status} {await response.text()}')
+                    return json.loads(txt)['token']
+                self._logger.info(f'Failed to get Zello Work token: {response.status} {txt}')
                 return None
 
     def load_private_key(self):
@@ -147,6 +148,7 @@ class ZelloController:
                 continue
 
             if self._token_expiry is None:
+                await asyncio.sleep(0)
                 continue
 
             time_until_expiry =  self._token_expiry - datetime.now()
@@ -293,6 +295,8 @@ class ZelloController:
                         data = json.loads(msg.data)
 
                         if 'error' in data:
+                            self._logger.error(data)
+                            await asyncio.sleep(0)
                             break
 
                         if 'command' in data:
@@ -327,6 +331,7 @@ class ZelloController:
                             self._logger.error('Authentication failed')
                             break
                         else:
+                            self._logger.info('Logged in!')
                             self._logged_in = True
 
                     elif msg.type == aiohttp.WSMsgType.BINARY:
