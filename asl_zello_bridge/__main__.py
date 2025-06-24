@@ -42,7 +42,6 @@ async def _main():
                                                   int(os.environ.get('USRP_RXPORT', 0))))
     ])
 
-    print('waiting')
     loop.run_forever()
 
 def main():
