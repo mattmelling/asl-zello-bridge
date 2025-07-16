@@ -27,7 +27,7 @@ Please note that the `setup.py` method is deprecated in favor of `pip` + `venv`.
 
 ### Dependencies
 ```
-apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-dev libvorbis-dev libopus0
+apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-dev libvorbis-dev libopus0 git
 ```
 
 ### Install with pip + venv
