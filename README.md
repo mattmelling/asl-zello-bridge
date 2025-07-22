@@ -35,6 +35,11 @@ apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-de
 ```
 apt-get install python3-venv python3-pip
 ```
+#### Download code
+```
+cd /opt
+git clone https://github.com/mattmelling/asl-zello-bridge.git
+```
 #### venv setup
 ```
 mkdir -p /opt/asl-zello-bridge/venv
@@ -47,10 +52,9 @@ git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
 /opt/asl-zello-bridge/venv/bin/python setup.py install
 ```
-#### Install Bridge
+#### Install Bridge in venv
 ```
-git clone https://github.com/mattmelling/asl-zello-bridge.git
-cd asl-zello-bridge
+cd /opt/asl-zello-bridge
 /opt/asl-zello-bridge/venv/bin/pip3 install .
 ```
 ### [DEPRECATED] Install with setup.py
