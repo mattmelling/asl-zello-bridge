@@ -65,25 +65,7 @@ class ZelloController:
             self._logger.info('Private key detected, getting Zello Free token')
             return self.get_token_free()
 
-        # Zello Work
-        if 'ZELLO_API_ENDPOINT' in os.environ:
-            self._logger.info('Zello Work API endpoint configured, getting token from workspace')
-            return await self.get_token_work()
-
-    async def get_token_work(self):
-        endpoint = os.environ.get('ZELLO_API_ENDPOINT')
-        self._logger.info(f'Using endpoint {endpoint}')
-        async with aiohttp.ClientSession() as session:
-            async with session.post(f'{endpoint}/user/gettoken', data={
-                'username': os.environ.get('ZELLO_USERNAME'),
-                'password': os.environ.get('ZELLO_PASSWORD')
-            }) as response:
-                txt = await response.text()
-                if response.status == 200:
-                    self._logger.info('Got Zello Work token successfully!')
-                    return json.loads(txt)['token']
-                self._logger.info(f'Failed to get Zello Work token: {response.status} {txt}')
-                return None
+        return None
 
     def load_private_key(self):
         with open(os.environ['ZELLO_PRIVATE_KEY'], 'rb') as f:
