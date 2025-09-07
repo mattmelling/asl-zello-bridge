@@ -1,183 +1,348 @@
-# Allstarlink <=> Zello Bridge
+# AllStarLink ⇔ Zello Bridge
+
 This tool allows Zello Free or Zello Work channels to be connected to USRP, enabling bridging of amateur radio networks to the Zello network.
 
 Tested with:
-- [Allstarlink](https://www.allstarlink.org/) `chan_usrp`
-- [DVSwitch](https://dvswitch.groups.io/g/main?) `Analog_Bridge`
-- [MMDVM_CM](https://github.com/juribeparada/MMDVM_CM) `USRP2DMR` and `USRP2YSF`
-- [SvxLink](https://www.svxlink.org/) via a third-party USRP module
 
-The original inspiration for this project was the work done by [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) to build a public Zello bridge to the [FreeSTAR](https://freestar.network/) network using SIP softphones and the Zello Windows client. This was extremely well received by users of the network, however it was not an ideal solution and had some shortcomings. [Matt G4IYT](https://www.qrz.com/db/G4IYT) later rebuilt the bridge as a dedicated service based on the [Zello Channels API](https://github.com/zelloptt/zello-channel-api/blob/master/API.md).
+* [AllStarLink](https://www.allstarlink.org/) `chan_usrp`
+* [DVSwitch](https://dvswitch.groups.io/g/main?) `Analog_Bridge`
+* [MMDVM\_CM](https://github.com/juribeparada/MMDVM_CM) `USRP2DMR` and `USRP2YSF`
+* [SvxLink](https://www.svxlink.org/) via a third-party USRP module
 
-Current users of the bridge include
-- [FreeSTAR](https://freestar.network)
-- [CumbriaCQ.com](https://cumbriacq.com/)
-- [235 Alive](https://235alive.com)
+The original inspiration for this project was the work done by [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) to build a public Zello bridge to the [FreeSTAR](https://freestar.network/) network using SIP softphones and the Zello Windows client. This was well received but had limitations. [Matt G4IYT](https://www.qrz.com/db/G4IYT) later rebuilt the bridge as a dedicated service using the [Zello Channels API](https://github.com/zelloptt/zello-channel-api/blob/master/API.md).
 
-The bridge does not require a lot of resources. The FreeSTAR bridge runs on a small VPS with 1 VCPU and 1GB RAM, and runs well on AMD64 and ARM platforms.
+Current users of the bridge include:
+
+* [FreeSTAR](https://freestar.network)
+* [CumbriaCQ.com](https://cumbriacq.com/)
+* [235 Alive](https://235alive.com)
+
+The bridge does not require significant resources. The FreeSTAR bridge runs on a VPS with 1 VCPU and 1GB RAM, and performs well on both AMD64 and ARM platforms.
+
+---
+
+## Table of Contents
+
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+  - [Dependencies](#dependencies)
+  - [Install with pip + venv](#install-with-pip--venv)
+  - [Install with setup.py (deprecated)](#deprecated-install-with-setuppy)
+  - [Docker](#docker)
+- [Setup Service](#setup-service)
+  - [Common Parameters](#common-parameters-used-in-both-free-and-work)
+  - [Zello Free Example](#zello-free-example)
+  - [Zello Work Example](#zello-work-example)
+  - [Optional Parameters](#optional-parameters)
+  - [Enable and Start Service](#enable-and-start-service)
+- [AllStarLink Setup](#allstarlink-setup)
+  - [Configure `rpt.conf`](#configure-rptconf)
+  - [`privatenodes.txt` (Supermon/AllScan)](#privatenodestxt-supermonallscan)
+  - [Allmon3 Overrides (`web.ini`)](#allmon3-overrides-webini)
+- [Credits](#credits)
+
+---
+
+## Prerequisites
+
+The bridge needs a Zello account to log into. This account represents the “user” speaking whenever traffic is sent from AllStarLink into Zello.
+
+**Recommended setup:**
+
+1. Create a dedicated Zello account for the bridge (do not use your personal account).
+2. Ensure this account has permission to **talk** and **listen** in your Zello channel.
+3. Convert this account into a developer account by logging into the [Zello Developers Console](https://developers.zello.com/).
+4. Under **Keys**, click **Add Key**. Save both the **Issuer** and the **Private Key**.
+
+> The private key is long. Copy the entire contents and save them to a `.key` file (for example, `/opt/asl-zello-bridge/zello.key`). You will reference this file in your service configuration.
+
+---
 
 ## Installation
-These instructions were tested with Debian 12, and may need adaptation for other systems. There are 2 installation methods:
 
-- `pip` + `venv`: A modern method to install Python, ensures isolated environment that will not interfere with system packages
-- `setup.py`: An older method used with early versions of the bridge, can break your system if not wielded carefully.
-- `docker`: Running as a container on your docker/podman/k8s host
+These instructions were tested with Debian 12. Adjust as needed for other systems.
 
-Please note that the `setup.py` method is deprecated in favor of `pip` + `venv`. Multiple users have reported issues with `setup.py` on Debian 12 and Ubuntu 24. If you originally installed your bridge with `setup.py`, we recommend that you upgrade, however for now things will still work.
+There are three installation methods:
+
+* **pip + venv (recommended):** modern, isolated, avoids interfering with system packages.
+* **setup.py (deprecated):** used in early versions, but may break system dependencies.
+* **docker:** containerized deployment on Docker/Podman/Kubernetes.
+
+> The `setup.py` method is deprecated in favor of `pip + venv`. Users have reported issues on Debian 12 and Ubuntu 24. If you installed with `setup.py`, it will still work, but upgrading is recommended.
 
 ### Dependencies
-```
+
+```bash
 apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-dev libvorbis-dev libopus0 git
 ```
 
 ### Install with pip + venv
-#### Python dependencies
-```
+
+Install Python dependencies:
+
+```bash
 apt-get install python3-venv python3-pip
 ```
-#### Download code
-```
+
+Download code:
+
+```bash
 cd /opt
 git clone https://github.com/mattmelling/asl-zello-bridge.git
 ```
-#### venv setup
-```
+
+Create venv:
+
+```bash
 mkdir -p /opt/asl-zello-bridge/venv
 python3 -m venv /opt/asl-zello-bridge/venv
 ```
-#### Install `pyogg`
-Current version of pyogg available through pip is not up to date, so install from git.
-```
+
+Install `pyogg` from source:
+
+```bash
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
 /opt/asl-zello-bridge/venv/bin/python setup.py install
 ```
-#### Install Bridge in venv
-```
+
+Install the bridge:
+
+```bash
 cd /opt/asl-zello-bridge
 /opt/asl-zello-bridge/venv/bin/pip3 install .
 ```
-### [DEPRECATED] Install with setup.py
-#### Install `pyogg`
-```
+
+### \[DEPRECATED] Install with setup.py
+
+Install `pyogg`:
+
+```bash
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
 sudo python setup.py install
 ```
-#### Install Bridge
-Some early installations of the bridge used `setup.py`, this has now been replaced with pip.
-```
+
+Install the bridge:
+
+```bash
 git clone https://github.com/mattmelling/asl-zello-bridge.git
 cd asl-zello-bridge
 sudo python3 setup.py install
 ```
 
-Now `asl_zello_bridge` should be on your `$PATH`. 
+At this point, `asl_zello_bridge` should be on your `$PATH`.
+
+---
 
 ## Setup Service
-Please note: if you installed with `setup.py` you will need to modify the `asl-zello-bridge.service` to point to where the script is installed.
-```
+
+If you installed with `setup.py`, adjust `asl-zello-bridge.service` to point to where the script is installed:
+
+```bash
 sudo cp asl-zello-bridge.service /etc/systemd/system/
 sudo systemctl edit asl-zello-bridge.service
 ```
 
-Update environment variables by setting this in the editor that pops up:
+When the editor opens, set environment variables under `[Service]`.
 
-```
+### Common Parameters (used in both Free and Work)
+
+```ini
 [Service]
-# Bind host for USRP RX
-Environment=USRP_BIND=
-# Destination host for USRP TX
-Environment=USRP_HOST=
-# Port we receive USRP stream on
-Environment=USRP_RXPORT=
-# Port we transmit USRP stream on
-Environment=USRP_TXPORT=
+# IP where this program listens for USRP RX audio (usually localhost)
+Environment=USRP_BIND=127.0.0.1
 
-Environment=ZELLO_USERNAME=
-Environment=ZELLO_PASSWORD=
-Environment=ZELLO_CHANNEL=
+# IP where this program sends USRP TX audio (usually localhost)
+Environment=USRP_HOST=127.0.0.1
 
-# Change this for different Zello flavor, see below
+# UDP port for audio received from USRP/AllStarLink
+# 34001 is ASL default (rxchannel = USRP/127.0.0.1:34001:32001)
+Environment=USRP_RXPORT=34001
+
+# UDP port for audio sent back into USRP/AllStarLink
+# 32001 is ASL default
+Environment=USRP_TXPORT=32001
+
+# Zello username (case-sensitive)
+Environment=ZELLO_USERNAME=myuser
+
+# Zello password
+Environment=ZELLO_PASSWORD=mypass
+
+# Zello channel name (must match exactly, case-sensitive)
+Environment=ZELLO_CHANNEL="My Test Channel"
+```
+
+### Zello Free Example
+
+```ini
+[Service]
+# USRP parameters
+Environment=USRP_BIND=127.0.0.1
+Environment=USRP_HOST=127.0.0.1
+Environment=USRP_RXPORT=34001
+Environment=USRP_TXPORT=32001
+
+# Zello credentials
+Environment=ZELLO_USERNAME=myuser
+Environment=ZELLO_PASSWORD=mypass
+Environment=ZELLO_CHANNEL="My Test Channel"
+
+# Zello Free variables
+Environment=ZELLO_PRIVATE_KEY=/opt/asl-zello-bridge/zello.key
+Environment=ZELLO_ISSUER=my-issuer-id
 Environment=ZELLO_WS_ENDPOINT=wss://zello.io/ws
 ```
 
-**WARNING**: The channel name is *case-sensitive*. If the channel name is lowercase in Zello, then it must be lowercase in your configuration! The symptom of the channel name being misconfigured is that you only hear audio from the USRP side, and cannot hear audio coming from Zello. See [this GitHub issue](https://github.com/zelloptt/zello-channel-api/issues/236) and [the one it links to](https://github.com/zelloptt/zello-channel-api/issues/233) for more information.
+### Zello Work Example
 
-#### Zello Free
-For Zello Free accounts, also set the following:
+```ini
+[Service]
+# USRP parameters
+Environment=USRP_BIND=127.0.0.1
+Environment=USRP_HOST=127.0.0.1
+Environment=USRP_RXPORT=34001
+Environment=USRP_TXPORT=32001
 
-- `ZELLO_PRIVATE_KEY` should be a path to your PKCS#8 format private key, from the Zello Developers Console.
-- `ZELLO_ISSUER` should be set to the issuer, also from the Zello Developers Console.
+# Zello credentials
+Environment=ZELLO_USERNAME=myuser
+Environment=ZELLO_PASSWORD=mypass
+Environment=ZELLO_CHANNEL="My Test Channel"
 
-#### Zello Work
-For Zello Work accounts, set the following additional configuration:
-
-- `ZELLO_API_ENDPOINT` should be set to your Zello network, e.g. `https://mynetwork.zellowork.com`
-- `ZELLO_WS_ENDPOINT` should be your network's websocket endpoint, e.g. `wss://zellowork.io/ws/mynetwork`
-
-#### Additional Environment Variables
-These extra environment variables are entirely optional, shown with their defaults
-
+# Zello Work variables
+Environment=ZELLO_API_ENDPOINT=https://mynetwork.zellowork.com
+Environment=ZELLO_WS_ENDPOINT=wss://zellowork.io/ws/mynetwork
 ```
-# Specify format for log messages, see https://docs.python.org/3/library/logging.html#logrecord-attributes
-LOG_FORMAT="%(levelname)s:%(name)s:%(message)s"
 
-# Gain applied at USRP interface in dB, defaults to 0dB
+### Optional Parameters
+
+```ini
+# Log format (see Python logging docs)
+Environment=LOG_FORMAT="%(levelname)s:%(name)s:%(message)s"
+
+# RX audio gain in dB
 Environment=USRP_GAIN_RX_DB=0
 
-# TX = USRP stream output to ASL, RX = USRP stream from ASL
+# TX audio gain in dB
 Environment=USRP_GAIN_TX_DB=0
 ```
 
-#### Enable Service
-Finally, enable the service
+### Enable and Start Service
 
-```
+```bash
 sudo systemctl enable asl-zello-bridge.service
 sudo systemctl start asl-zello-bridge.service
 ```
 
-## Allstarlink Setup
-Set up a USRP channel in ASL:
+---
 
-rpt.conf:
+## AllStarLink Setup
+
+### Configure `rpt.conf`
+
+Set up a node with a USRP channel in ASL (`asl-menu` can add a new node number). Example `rpt.conf`:
+
+```ini
+[1001](node-main)
+rxchannel = USRP/127.0.0.1:34001:32001
+duplex = 0       ; Half duplex, no telemetry or hang time
+linktolink = yes ; Force full-duplex even with duplex=0
+```
+
+This creates node `1001` on your server connected to Zello. You can then link node `1001` to other nodes as desired.
+
+### `privatenodes.txt` (Supermon/AllScan)
+
+To make node `1001` display nicely in Supermon/AllScan, add an entry to `/etc/asterisk/privatenodes.txt`:
 
 ```
-[1001]
-rxchannel = USRP/127.0.0.1:7070:7071
+Node | Callsign | Description   | Location
+1001 | MyCall   | Zello Channel | QTH
 ```
+
+Append the entry:
+
+```bash
+echo "1001|MyCall|Zello Channel|QTH" | sudo tee -a /etc/asterisk/privatenodes.txt
+```
+
+Install support for privatenodes:
+
+```bash
+sudo apt install asl3-update-nodelist
+```
+
+### Allmon3 Overrides (`web.ini`)
+
+`privatenodes.txt` is not used by Allmon3. To override labels in Allmon3, add the line to the `[node-overrides]` section of `/etc/allmon3/web.ini`.
+
+Append if the section already exists:
+
+```bash
+sudo sed -i '/^\[node-overrides\]/a 1001 = MyCall Zello Channel QTH' /etc/allmon3/web.ini
+```
+
+Restart Allmon3:
+
+```bash
+sudo systemctl restart allmon3
+```
+
+If `[node-overrides]` does not exist, create it and add the line:
+
+```bash
+sudo sh -c 'grep -q "^\[node-overrides\]" /etc/allmon3/web.ini || echo "[node-overrides]" >> /etc/allmon3/web.ini'
+echo "1001 = MyCall Zello Channel QTH" | sudo tee -a /etc/allmon3/web.ini
+sudo systemctl restart allmon3
+```
+
+Resulting section:
+
+```ini
+[node-overrides]
+1001 = MyCall Zello Channel QTH
+```
+
+---
 
 ## Docker
-This project also includes a `Dockerfile`, to build the Docker image:
 
-```
+A `Dockerfile` is included:
+
+```bash
 docker build -t asl-zello-bridge .
 ```
 
-It should be run with the same set of environment variables that are used with the `systemd` service. Some care has to be taken to provide access to key files, in this example it is mapped in as a volume:
+Run with required environment variables (Zello Free example):
 
-```
+```bash
 docker run --rm -it \
   -e USRP_BIND=0.0.0.0 \
   -e USRP_HOST=allstar.node \
-  -e USRP_RXPORT=7070 \
-  -e USRP_TXPORT=7071 \
+  -e USRP_RXPORT=34001 \
+  -e USRP_TXPORT=32001 \
   -e ZELLO_WS_ENDPOINT=wss://zello.io/ws \
-  -e ZELLO_CHANNEL=test \
+  -e ZELLO_CHANNEL="My Test Channel" \
   -e ZELLO_PRIVATE_KEY=/test.key \
-  -e ZELLO_USERNAME=zello_test \
-  -e ZELLO_PASSWORD=P@55w0rd \
-  -e ZELLO_ISSUER=<issuer-token> \
+  -e ZELLO_USERNAME=myuser \
+  -e ZELLO_PASSWORD=mypass \
+  -e ZELLO_ISSUER=my-issuer-id \
   -v /src/asl-zello-bridge/test.key:/test.key \
   asl-zello-bridge
 ```
-Of course this will also work with docker-compose, k8s, or anything that works with docker containers.
+
+This also works with `docker-compose`, Kubernetes, or any container runtime.
+
+---
+
 ## Credits
+
 `asl-zello-bridge` is built and maintained by [Matt G4IYT](https://www.qrz.com/db/G4IYT)
 
 Special thanks to:
-- [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) for inspiration with the original "janky" bridge, hosting the FreeSTAR bridge, and continued support 
-- [Shane M0VUB](https://www.qrz.com/db/M0VUB) for his continued support on behalf of the FreeSTAR network
-- [Lee M0LLC](https://www.qrz.com/db/M0LLC) for early adoption and testing with the CumbriaCQ network
-- [Piotr G0TWP](https://www.qrz.com/db/G0TWP) for testing with SvxLink and unearthing some tricky bugs
+
+* [Rob G4ZWH](https://www.qrz.com/db/G4ZWH) for inspiration and FreeSTAR bridge hosting
+* [Shane M0VUB](https://www.qrz.com/db/M0VUB) for support on behalf of FreeSTAR
+* [Lee M0LLC](https://www.qrz.com/db/M0LLC) for early adoption and CumbriaCQ testing
+* [Piotr G0TWP](https://www.qrz.com/db/G0TWP) for SvxLink testing and bug discovery
