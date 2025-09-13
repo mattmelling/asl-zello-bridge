@@ -248,9 +248,19 @@ Set up a node with a USRP channel in ASL (`asl-menu` can add a new node number).
 rxchannel = USRP/127.0.0.1:34001:32001
 duplex = 0       ; Half duplex, no telemetry or hang time
 linktolink = yes ; Force full-duplex even with duplex=0
+hangtime = 0     ; Disable hangtime
+althangtime = 0  ; Disable alt hangtime
+telemdefault = 0 ; Disable telemetry
+nounkeyct = 1    ; Disable courtesy tone
+wait_times = wait-times-1001 ; Point to wait-times-1001 stanza
+
+[wait-times-1001]
+telemwait = 0 ; Disable telemetry wait time
+idwait = 0    ; Disable ID wait time
+unkeywait = 0 ; Disable unkey wait time
 ```
 
-This creates node `1001` on your server connected to Zello. You can then link node `1001` to other nodes as desired.
+This creates node `1001` on your server with a USRP rxchannel for your Zello bridge to connect to. You can then link node `1001` to other nodes as desired.
 
 ### `privatenodes.txt` (Supermon/AllScan)
 
