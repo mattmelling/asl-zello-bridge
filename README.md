@@ -218,6 +218,9 @@ Environment=ZELLO_WS_ENDPOINT=wss://zellowork.io/ws/mynetwork
 ### Optional Parameters
 
 ```ini
+# Log level
+Environment=LOG_LEVEL=DEBUG
+
 # Log format (see Python logging docs)
 Environment=LOG_FORMAT="%(levelname)s:%(name)s:%(message)s"
 
