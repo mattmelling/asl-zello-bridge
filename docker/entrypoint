@@ -1,0 +1,3 @@
+cd /usr/local/bin
+	echo 'Starting Zello Bridge...'
+	python asl-zello-bridge
