@@ -256,13 +256,21 @@ class ZelloController:
             self._frame_bytes = 0
 
     async def authenticate(self, ws):
+        # Zello Work expects singular 'channel'; Zello channel API expects 'channels' array
+        use_work_format = bool(
+            os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API')
+        )
+        channel_name = os.environ.get('ZELLO_CHANNEL')
         payload = {
             'command': 'logon',
             'seq': self.get_seq(),
             'username': os.environ.get('ZELLO_USERNAME'),
             'password': os.environ.get('ZELLO_PASSWORD'),
-            'channels': [os.environ.get('ZELLO_CHANNEL')]
         }
+        if use_work_format:
+            payload['channel'] = channel_name
+        else:
+            payload['channels'] = [channel_name] if channel_name else []
         self._auth_in_progress = True
         self._auth_started_at = time.monotonic()
         self._auth_seq = payload['seq']
