@@ -20,6 +20,7 @@ from .stream import AsyncByteStream
 
 AUTH_TOKEN_EXPIRY = 3600
 AUTH_TOKEN_EXPIRY_THRESHOLD = 600
+GETTOKEN_REQUEST_TIMEOUT_SEC = 10
 
 POST_LOGIN_COOLDOWN_SEC = 0.8
 CHANNEL_NOT_READY_BACKOFF_SEC = 0.5
@@ -122,23 +123,77 @@ class ZelloController:
         return None
 
     async def get_token_work(self):
-        endpoint = os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API')
+        endpoint = (os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API') or '').rstrip('/')
+        if not endpoint:
+            self._logger.error('Zello Work endpoint missing: set ZELLO_API_ENDPOINT or ZELLOWORK_API')
+            return None
         self._logger.info(f'Using endpoint {endpoint}')
-        async with aiohttp.ClientSession() as session:
-            async with session.post(f'{endpoint}/user/gettoken', data={
-                'username': os.environ.get('ZELLO_USERNAME'),
-                'password': os.environ.get('ZELLO_PASSWORD')
-            }) as response:
-                body = await response.text()
-                if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(f'gettoken response: {response.status} {body[:200]}')
-                if response.status == 200:
-                    self._logger.info('Got Zello Work token successfully!')
-                    token = json.loads(body).get('token')
-                    if token:
-                        return token
-                self._logger.warning(f'Failed to get Zello Work token: {response.status} {body[:200]}')
-                return None
+        timeout = aiohttp.ClientTimeout(total=GETTOKEN_REQUEST_TIMEOUT_SEC)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(f'{endpoint}/user/gettoken', data={
+                    'username': os.environ.get('ZELLO_USERNAME'),
+                    'password': os.environ.get('ZELLO_PASSWORD')
+                }) as response:
+                    body = await response.text()
+                    if response.status == 200:
+                        try:
+                            data = json.loads(body)
+                        except json.JSONDecodeError as e:
+                            self._logger.warning(f'Zello Work gettoken: invalid JSON: {e}')
+                            return None
+                        token = data.get('token')
+                        if token:
+                            self._set_token_expiry_from_work_response(data, token)
+                            self._logger.info('Got Zello Work token successfully!')
+                            return token
+                        self._logger.warning('Zello Work gettoken: 200 OK but no token in response')
+                        return None
+                    # Do not log response body; it may contain sensitive data
+                    self._logger.warning(f'Failed to get Zello Work token: HTTP {response.status}')
+                    return None
+        except asyncio.TimeoutError:
+            self._logger.warning('Zello Work gettoken: request timed out')
+            return None
+        except aiohttp.ClientError as e:
+            self._logger.warning(f'Zello Work gettoken: request failed: {e}')
+            return None
+
+    def _set_token_expiry_from_work_response(self, data: dict, token: str) -> None:
+        """Set _token_expiry from gettoken response so the monitor can reauth before expiry."""
+        now = datetime.now(timezone.utc)
+        expiry_dt = None
+        # Response may include explicit expiry (unix timestamp)
+        for key in ('expires', 'exp'):
+            raw = data.get(key)
+            if raw is not None:
+                try:
+                    ts = int(raw)
+                    expiry_dt = datetime.fromtimestamp(ts, tz=timezone.utc)
+                    break
+                except (TypeError, ValueError, OSError):
+                    pass
+        # Or expires_in (seconds from now)
+        if expiry_dt is None:
+            expires_in = data.get('expires_in')
+            if expires_in is not None:
+                try:
+                    sec = int(expires_in)
+                    expiry_dt = now + timedelta(seconds=sec)
+                except (TypeError, ValueError):
+                    pass
+        # Fallback: decode JWT and read exp claim (no signature verification)
+        if expiry_dt is None and token:
+            try:
+                payload = jwt.decode(token, options={"verify_signature": False})
+                exp = payload.get('exp')
+                if exp is not None:
+                    expiry_dt = datetime.fromtimestamp(int(exp), tz=timezone.utc)
+            except Exception:
+                pass
+        self._token_expiry = expiry_dt
+        if expiry_dt and self._logger.isEnabledFor(logging.DEBUG):
+            self._logger.debug(f"Zello Work token expiry set to {expiry_dt}")
 
     def load_private_key(self):
         if self._private_key is None:
@@ -219,7 +274,11 @@ class ZelloController:
             used_refresh = True
         else:
             self._logger.info('Authenticating with new token')
-            payload['auth_token'] = await self.get_token()
+            token = await self.get_token()
+            if token is None:
+                self._logger.error('Failed to obtain auth token (check credentials and endpoint)')
+                raise ValueError('Failed to obtain auth token')
+            payload['auth_token'] = token
         if self._logger.isEnabledFor(logging.DEBUG):
             self._logger.debug(
                 f"Sending logon payload: {json.dumps(self._redact(payload))}")
