@@ -117,15 +117,15 @@ class ZelloController:
             self._logger.info('Private key detected, getting Zello Free token')
             return self.get_token_free()
         # Zello Work (username/password token from workspace API)
-        if os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API'):
+        if os.environ.get('ZELLO_API_ENDPOINT'):
             self._logger.info('Zello Work API endpoint configured, getting token from workspace')
             return await self.get_token_work()
         return None
 
     async def get_token_work(self):
-        endpoint = (os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API') or '').rstrip('/')
+        endpoint = (os.environ.get('ZELLO_API_ENDPOINT') or '').rstrip('/')
         if not endpoint:
-            self._logger.error('Zello Work endpoint missing: set ZELLO_API_ENDPOINT or ZELLOWORK_API')
+            self._logger.error('Zello Work endpoint missing: set ZELLO_API_ENDPOINT')
             return None
         self._logger.info(f'Using endpoint {endpoint}')
         timeout = aiohttp.ClientTimeout(total=GETTOKEN_REQUEST_TIMEOUT_SEC)
@@ -257,9 +257,7 @@ class ZelloController:
 
     async def authenticate(self, ws):
         # Zello Work WebSocket uses username+password (REST gettoken is for admin API only)
-        is_zello_work = bool(
-            os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API')
-        )
+        is_zello_work = bool(os.environ.get('ZELLO_API_ENDPOINT'))
         channel_name = os.environ.get('ZELLO_CHANNEL')
         payload = {
             'command': 'logon',
