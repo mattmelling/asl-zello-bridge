@@ -674,6 +674,15 @@ class ZelloController:
             self._logger.debug('run_rx starting')
         while not self._shutdown:
             try:
+                ws_endpoint = os.environ.get('ZELLO_WS_ENDPOINT')
+                if not ws_endpoint or not isinstance(ws_endpoint, str) or not ws_endpoint.strip():
+                    self._logger.error(
+                        'ZELLO_WS_ENDPOINT is not set or empty. '
+                        'Set it in your environment (e.g. in the systemd service file). '
+                        'Example: wss://zellowork.io/ws/yournetwork')
+                    await asyncio.sleep(5)
+                    continue
+                ws_endpoint = ws_endpoint.strip()
                 conn = aiohttp.TCPConnector(family=socket.AF_INET, ssl=False)
                 decoder = None
                 is_channel_available = False
@@ -681,14 +690,12 @@ class ZelloController:
                 decoder = OpusDecoder()
                 decoder.set_channels(1)
                 decoder.set_sampling_frequency(8000)
-                self._logger.info(
-                    f"Connecting to {os.environ.get('ZELLO_WS_ENDPOINT')}")
+                self._logger.info(f"Connecting to {ws_endpoint}")
                 if self._logger.isEnabledFor(logging.DEBUG):
-                    self._logger.debug(
-                        f"Opening WebSocket to {os.environ.get('ZELLO_WS_ENDPOINT')}")
+                    self._logger.debug(f"Opening WebSocket to {ws_endpoint}")
                 async with aiohttp.ClientSession(connector=conn) as session:
                     try:
-                        async with session.ws_connect(os.environ.get('ZELLO_WS_ENDPOINT'), autoping=True, heartbeat=30.0) as ws:
+                        async with session.ws_connect(ws_endpoint, autoping=True, heartbeat=30.0) as ws:
                             if self._logger.isEnabledFor(logging.DEBUG):
                                 self._logger.debug(
                                     "WebSocket connection established")
