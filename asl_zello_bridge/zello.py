@@ -256,8 +256,8 @@ class ZelloController:
             self._frame_bytes = 0
 
     async def authenticate(self, ws):
-        # Zello Work expects singular 'channel'; Zello channel API expects 'channels' array
-        use_work_format = bool(
+        # Zello Work WebSocket uses username+password (REST gettoken is for admin API only)
+        is_zello_work = bool(
             os.environ.get('ZELLO_API_ENDPOINT') or os.environ.get('ZELLOWORK_API')
         )
         channel_name = os.environ.get('ZELLO_CHANNEL')
@@ -266,11 +266,8 @@ class ZelloController:
             'seq': self.get_seq(),
             'username': os.environ.get('ZELLO_USERNAME'),
             'password': os.environ.get('ZELLO_PASSWORD'),
+            'channels': [channel_name] if channel_name else [],
         }
-        if use_work_format:
-            payload['channel'] = channel_name
-        else:
-            payload['channels'] = [channel_name] if channel_name else []
         self._auth_in_progress = True
         self._auth_started_at = time.monotonic()
         self._auth_seq = payload['seq']
@@ -280,7 +277,11 @@ class ZelloController:
             payload['refresh_token'] = self._refresh_token
             self._refresh_token = None
             used_refresh = True
+        elif is_zello_work:
+            # WebSocket Channel API: use username+password only. REST gettoken is for admin API.
+            self._logger.info('Authenticating with username/password (Zello Work)')
         else:
+            # Zello Free: JWT from private key
             self._logger.info('Authenticating with new token')
             token = await self.get_token()
             if token is None:
@@ -291,7 +292,8 @@ class ZelloController:
             self._logger.debug(
                 f"Sending logon payload: {json.dumps(self._redact(payload))}")
             self._logger.debug(
-                "Auth method: refresh_token" if used_refresh else "Auth method: auth_token")
+                "Auth method: refresh_token" if used_refresh else
+                "Auth method: username/password (Zello Work)" if is_zello_work else "Auth method: auth_token")
         self._logger.info('Logging in...')
         await ws.send_str(json.dumps(payload))
 
