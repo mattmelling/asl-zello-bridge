@@ -3,9 +3,11 @@ import logging
 import math
 import os
 import struct
+import time
 
 from .stream import AsyncByteStream
 
+USRP_FRAME_TIME= 0.02
 USRP_FRAME_SIZE = 352
 USRP_HEADER_SIZE = 32
 USRP_VOICE_SIZE = USRP_FRAME_SIZE - USRP_HEADER_SIZE
@@ -121,19 +123,45 @@ class USRPController(asyncio.DatagramProtocol):
             self._transport.sendto(frame, (self._tx_address, self._tx_port))
 
     async def run_tx(self):
-        while True:
+        next_tx = time.monotonic()
+        buf = b''
 
-            # Send PTT off packet if Zello PTT is off
+        while True:
             if not self._zello_ptt.is_set():
                 await self._tx_off()
-
-            # Wait for Zello PTT
-            await self._zello_ptt.wait()
+                buf = b''
+                next_tx = time.monotonic()
+                await self._zello_ptt.wait()
+                continue
 
             try:
-                pcm = await asyncio.wait_for(self._stream_in.read(USRP_VOICE_SIZE), timeout=0.1)
-                if len(pcm) > 0:
-                    await self._tx_frame(pcm)
+                chunk = await asyncio.wait_for(
+                    self._stream_in.read(
+                        USRP_VOICE_SIZE - len(buf)),
+                    # wait up to 60ms for a delayed frame,
+                    # ASL typically copes with a <60ms delay
+                    timeout=0.06)
+                if len(chunk) == 0:
+                    continue
+                buf += chunk
             except asyncio.TimeoutError:
-                pass
+                await self._tx_off()
+                buf = b''
+                next_tx = time.monotonic()
+                await self._zello_ptt.wait()
+                continue
+
+            if len(buf) < USRP_VOICE_SIZE:
+                continue
+
+            pcm, buf = buf[:USRP_VOICE_SIZE], buf[USRP_VOICE_SIZE:]
+            await self._tx_frame(pcm)
+
+            next_tx += USRP_FRAME_TIME
+            now = time.monotonic()
+            sleep_dur = next_tx - now
+            if sleep_dur > 0:
+                await asyncio.sleep(sleep_dur)
+            else:
+                next_tx = now
 
