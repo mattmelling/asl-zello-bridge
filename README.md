@@ -81,7 +81,7 @@ apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-de
 Install Python dependencies:
 
 ```bash
-apt-get install python3-venv python3-pip
+apt-get install python3-venv python3-pip python3-setuptools
 ```
 
 Download code:
