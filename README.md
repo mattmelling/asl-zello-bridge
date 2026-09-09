@@ -81,7 +81,7 @@ apt-get install libogg-dev libopusenc-dev libflac-dev libopusfile-dev libopus-de
 Install Python dependencies:
 
 ```bash
-apt-get install python3-venv python3-pip python3-setuptools
+apt-get install python3-venv python3-pip
 ```
 
 Download code:
@@ -103,6 +103,7 @@ Install `pyogg` from source:
 ```bash
 git clone https://github.com/TeamPyOgg/PyOgg.git
 cd PyOgg
+pip3 install setuptools
 /opt/asl-zello-bridge/venv/bin/python setup.py install
 ```
 
