@@ -125,30 +125,44 @@ class USRPController(asyncio.DatagramProtocol):
     async def run_tx(self):
         next_tx = time.monotonic()
         buf = b''
+        keyed = False
 
         while True:
-            if not self._zello_ptt.is_set():
-                await self._tx_off()
-                buf = b''
-                next_tx = time.monotonic()
+            if not keyed and not buf and not self._zello_ptt.is_set():
                 await self._zello_ptt.wait()
-                continue
+                next_tx = time.monotonic()
+
+            timeout = 0.06 if self._zello_ptt.is_set() else 0.15
 
             try:
                 chunk = await asyncio.wait_for(
                     self._stream_in.read(
                         USRP_VOICE_SIZE - len(buf)),
-                    # wait up to 60ms for a delayed frame,
-                    # ASL typically copes with a <60ms delay
-                    timeout=0.06)
+                    timeout=timeout)
                 if len(chunk) == 0:
                     continue
                 buf += chunk
             except asyncio.TimeoutError:
-                await self._tx_off()
-                buf = b''
+                if buf:
+                    pcm = buf.ljust(USRP_VOICE_SIZE, b'\x00')
+                    await self._tx_frame(pcm)
+                    buf = b''
+
+                if keyed:
+                    await self._tx_off()
+                    keyed = False
+
+                while True:
+                    try:
+                        leftover = await asyncio.wait_for(
+                            self._stream_in.read(USRP_VOICE_SIZE),
+                            timeout=0.01)
+                        if not leftover:
+                            break
+                    except asyncio.TimeoutError:
+                        break
+
                 next_tx = time.monotonic()
-                await self._zello_ptt.wait()
                 continue
 
             if len(buf) < USRP_VOICE_SIZE:
@@ -156,6 +170,7 @@ class USRPController(asyncio.DatagramProtocol):
 
             pcm, buf = buf[:USRP_VOICE_SIZE], buf[USRP_VOICE_SIZE:]
             await self._tx_frame(pcm)
+            keyed = True
 
             next_tx += USRP_FRAME_TIME
             now = time.monotonic()
