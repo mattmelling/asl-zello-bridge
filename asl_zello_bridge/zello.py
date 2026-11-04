@@ -60,6 +60,21 @@ class ZelloController:
         self._usrp_ptt = usrp_ptt
         self._zello_ptt = zello_ptt
 
+        # RX timing diagnostics: measure the actual Zello RX path from
+        # on_stream_start -> first binary packet -> first decoded PCM.
+        # These are intentionally diagnostic only; they do not alter audio.
+        self._rx_stream_start_mono = None
+        self._rx_first_binary_logged = False
+        self._rx_first_pcm_logged = False
+        self._rx_diag_version = 'rx-timing-v3-startup'
+
+        # Startup diagnostics: measure the raw WebSocket receive timing
+        # separately from on_stream_start handling and Opus decoding.
+        self._rx_ws_start_mono = None
+        self._rx_ws_first_binary_mono = None
+        self._rx_ws_msg_count_since_start = 0
+        self._rx_start_handler_begin_mono = None
+
         self._ws = None
         self._txing = False
 
@@ -69,6 +84,8 @@ class ZelloController:
         self._talk_start = None
 
         self._usrp_tx_start = None
+
+        self._logger.info('RX startup timing diagnostics loaded (rx-timing-v3-startup)')
 
         self._tasks = []
         self._shutdown = False
@@ -482,21 +499,28 @@ class ZelloController:
                             if self._logger.isEnabledFor(logging.DEBUG):
                                 self._logger.debug(
                                     f"USRP PTT down at {self._ptt_down_at}")
-                        if (datetime.now(timezone.utc) - self._ptt_down_at).total_seconds() < 0.15:
-                            await asyncio.sleep(0.01)
-                            continue
+                        # Removed 150ms PTT debounce — it was clipping the first
+                        # 0.1–0.4s of every transmission from Zello to USRP.
 
                     try:
                         pcm = await asyncio.wait_for(self._stream_in.read(640), timeout=1)
                     except asyncio.TimeoutError:
                         self._stat_read_timeouts += 1
-                        self._debug_skip("stream_in read timeout")
-                        pcm = []
-                        if sending:
-                            await self._end_tx()
-                            sending = False
-                            first_pcm_logged = False
-                        continue
+                        # Only drop the stream if PTT has actually gone away.
+                        # If _usrp_ptt is still set, Zello just lagged mid-TX —
+                        # keep the stream open and send silence so USRP doesn't
+                        # cut off a 30-second transmission after a brief hiccup.
+                        if self._usrp_ptt.is_set() and sending:
+                            self._debug_skip("stream_in stall (PTT still up, holding stream)")
+                            pcm = b'\x00' * 640
+                        else:
+                            self._debug_skip("stream_in read timeout")
+                            pcm = []
+                            if sending:
+                                await self._end_tx()
+                                sending = False
+                                first_pcm_logged = False
+                            continue
                     if not pcm:
                         self._debug_skip("empty PCM")
                         continue
@@ -623,6 +647,13 @@ class ZelloController:
                             self._ws = ws
                             start_time = time.monotonic()
                             async for msg in ws:
+                                # Timestamp the instant aiohttp yields each WebSocket
+                                # message to us. This lets us distinguish 'Zello has not
+                                # sent the first audio yet' from 'our handler delayed it'.
+                                msg_received_mono = time.monotonic()
+                                if self._rx_stream_start_mono is not None:
+                                    self._rx_ws_msg_count_since_start += 1
+
                                 if self._shutdown:
                                     break
                                 if ws.closed:
@@ -716,6 +747,17 @@ class ZelloController:
 
                                     if 'command' in data:
                                         if data['command'] == 'on_stream_start':
+                                            self._rx_start_handler_begin_mono = time.monotonic()
+                                            self._rx_ws_start_mono = msg_received_mono
+                                            self._rx_ws_first_binary_mono = None
+                                            self._rx_ws_msg_count_since_start = 0
+                                            if self._logger.isEnabledFor(logging.DEBUG):
+                                                handler_delay_ms = (
+                                                    self._rx_start_handler_begin_mono - msg_received_mono
+                                                ) * 1000.0
+                                                self._logger.debug(
+                                                    f"RX startup: on_stream_start handler began {handler_delay_ms:.3f} ms after WebSocket message was yielded"
+                                                )
                                             user = data.get('from') or data.get('user') or data.get(
                                                 'username') or data.get('display_name')
                                             self._talk_user = user
@@ -730,7 +772,20 @@ class ZelloController:
                                             else:
                                                 self._logger.info(
                                                     'Keyed:Unknown')
+                                            self._rx_stream_start_mono = time.monotonic()
+                                            self._rx_first_binary_logged = False
+                                            self._rx_first_pcm_logged = False
+                                            self._logger.info(
+                                                'RX timing: on_stream_start timestamp recorded'
+                                            )
                                             self._zello_ptt.set()
+                                            if self._logger.isEnabledFor(logging.DEBUG):
+                                                handler_ms = (
+                                                    time.monotonic() - self._rx_start_handler_begin_mono
+                                                ) * 1000.0
+                                                self._logger.debug(
+                                                    f"RX startup: on_stream_start handler completed in {handler_ms:.3f} ms"
+                                                )
                                         elif data['command'] == 'on_stream_stop':
                                             now_dt = datetime.now(timezone.utc)
                                             dur = None
@@ -824,9 +879,57 @@ class ZelloController:
                                         self._logger.debug(
                                             f"RX BINARY {len(msg.data)} bytes")
                                     try:
+                                        if self._rx_stream_start_mono is not None:
+                                            if self._rx_ws_first_binary_mono is None:
+                                                self._rx_ws_first_binary_mono = msg_received_mono
+                                                ws_first_binary_ms = (
+                                                    msg_received_mono - self._rx_stream_start_mono
+                                                ) * 1000.0
+                                                handler_to_binary_ms = (
+                                                    msg_received_mono - self._rx_start_handler_begin_mono
+                                                ) * 1000.0
+                                                self._logger.info(
+                                                    f"RX startup RAW WS: first binary yielded {ws_first_binary_ms:.1f} ms after stream-start timestamp; {handler_to_binary_ms:.1f} ms after on_stream_start handler began; messages_seen_since_start={self._rx_ws_msg_count_since_start}"
+                                                )
+
+                                        if (
+                                            self._rx_stream_start_mono is not None
+                                            and not self._rx_first_binary_logged
+                                        ):
+                                            binary_ms = (
+                                                time.monotonic() - self._rx_stream_start_mono
+                                            ) * 1000.0
+                                            self._logger.info(
+                                                f"RX first binary after stream start: {binary_ms:.1f} ms"
+                                            )
+                                            self._rx_first_binary_logged = True
+
                                         data = msg.data[9:]
                                         pcm = decoder.decode(bytearray(data))
+
+                                        if (
+                                            self._rx_stream_start_mono is not None
+                                            and not self._rx_first_pcm_logged
+                                        ):
+                                            pcm_ms = (
+                                                time.monotonic() - self._rx_stream_start_mono
+                                            ) * 1000.0
+                                            self._logger.info(
+                                                f"RX first decoded PCM after stream start: {pcm_ms:.1f} ms (len={len(pcm)})"
+                                            )
+                                            self._rx_first_pcm_logged = True
+
                                         await self._stream_out.write(pcm)
+
+                                        if (
+                                            self._rx_stream_start_mono is not None
+                                            and self._rx_first_pcm_logged
+                                        ):
+                                            # Diagnostic only: confirms the first decoded PCM was
+                                            # actually handed to AsyncByteStream.
+                                            self._logger.debug(
+                                                f'RX timing: first PCM written to stream (len={len(pcm)})'
+                                            )
                                     except Exception as e:
                                         self._logger.error(
                                             f'Failed to decode audio: {e} bytes={len(msg.data)}')

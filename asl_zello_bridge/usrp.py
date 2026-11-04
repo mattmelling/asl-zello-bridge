@@ -7,7 +7,7 @@ import time
 
 from .stream import AsyncByteStream
 
-USRP_FRAME_TIME= 0.02
+USRP_FRAME_TIME = 0.02
 USRP_FRAME_SIZE = 352
 USRP_HEADER_SIZE = 32
 USRP_VOICE_SIZE = USRP_FRAME_SIZE - USRP_HEADER_SIZE
@@ -85,8 +85,7 @@ class USRPController(asyncio.DatagramProtocol):
 
     async def _tx_encode_state(self, ptt=True):
         seq = await self._get_seq()
-        return 'USRP'.encode('ascii') \
-            + struct.pack('>iiiiiii',
+        return 'USRP'.encode('ascii')             + struct.pack('>iiiiiii',
                           seq, 0,
                           ptt, 0,
                           USRP_TYPE_VOICE, 0, 0)
@@ -126,41 +125,76 @@ class USRPController(asyncio.DatagramProtocol):
         next_tx = time.monotonic()
         buf = b''
         keyed = False
+        ptt_start = None
 
         while True:
             if not keyed and not buf and not self._zello_ptt.is_set():
                 await self._zello_ptt.wait()
                 next_tx = time.monotonic()
+                ptt_start = time.monotonic()
+                # Send silence frames immediately on PTT to open the Asterisk/
+                # app_rpt bridge before real audio arrives. Without this the
+                # bridge setup consumes the first ~300-500ms of real speech.
+                silence = b'\x00' * USRP_VOICE_SIZE
+                for _ in range(0):  # 20 × 20ms = 400ms lead-in
+                    await self._tx_frame(silence)
+                    await asyncio.sleep(USRP_FRAME_TIME)
 
-            timeout = 0.06 if self._zello_ptt.is_set() else 0.15
+            # The stream is the audio authority. A Zello PTT state of ON means
+            # more audio may still arrive; a temporary read timeout is jitter,
+            # not an end of transmission.
+            if self._zello_ptt.is_set():
+                if ptt_start is not None and (time.monotonic() - ptt_start) < 0.1:
+                    timeout = 0.12
+                else:
+                    timeout = USRP_FRAME_TIME
+            else:
+                # Zello has stopped producing new audio. We still allow the
+                # stream to drain before sending USRP PTT-off.
+                timeout = 0.06
+                ptt_start = None
 
             try:
                 chunk = await asyncio.wait_for(
-                    self._stream_in.read(
-                        USRP_VOICE_SIZE - len(buf)),
+                    self._stream_in.read(USRP_VOICE_SIZE - len(buf)),
                     timeout=timeout)
                 if len(chunk) == 0:
                     continue
                 buf += chunk
+                if ptt_start is not None:
+                    ptt_start = None
             except asyncio.TimeoutError:
+                # If Zello is still keyed, this is only a temporary gap.
+                # Keep the USRP transmission alive with a 20ms silent frame.
+                if self._zello_ptt.is_set():
+                    await self._tx_frame(b'\x00' * USRP_VOICE_SIZE)
+                    keyed = True
+
+                    next_tx += USRP_FRAME_TIME
+                    now = time.monotonic()
+                    sleep_dur = next_tx - now
+                    if sleep_dur > 0:
+                        await asyncio.sleep(sleep_dur)
+                    else:
+                        next_tx = now
+
+                    continue
+
+                # Zello PTT has ended. Do not unkey just because the read
+                # timed out: first check whether PCM remains buffered.
                 if buf:
                     pcm = buf.ljust(USRP_VOICE_SIZE, b'\x00')
                     await self._tx_frame(pcm)
                     buf = b''
+                    keyed = True
+                    continue
+
+                if await self._stream_in.has_data():
+                    continue
 
                 if keyed:
                     await self._tx_off()
                     keyed = False
-
-                while True:
-                    try:
-                        leftover = await asyncio.wait_for(
-                            self._stream_in.read(USRP_VOICE_SIZE),
-                            timeout=0.01)
-                        if not leftover:
-                            break
-                    except asyncio.TimeoutError:
-                        break
 
                 next_tx = time.monotonic()
                 continue
@@ -179,4 +213,3 @@ class USRPController(asyncio.DatagramProtocol):
                 await asyncio.sleep(sleep_dur)
             else:
                 next_tx = now
-
